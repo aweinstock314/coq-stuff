@@ -17,11 +17,11 @@ Record LATTICE : Type := mkLattice {
     top_prop : forall x, leq L x top = true;
     bot_prop : forall x, leq L bot x = true;
 
-    glb_prop1 : forall l1 l2, leq L (glb l1 l2) l1 = true /\ leq L (glb l1 l2) l2 = true;
-    glb_prop2 : forall l1 l2 x, leq L x l1 = true /\ leq L x l2 = true -> leq L x (glb l1 l2) = true;
+    glb_prop1 : forall x y, leq L (glb x y) x = true /\ leq L (glb x y) y = true;
+    glb_prop2 : forall x y a, leq L a x = true /\ leq L a y = true -> leq L a (glb x y) = true;
 
-    lub_prop1 : forall l1 l2, leq L l1 (lub l1 l2) = true /\ leq L l2 (lub l1 l2) = true;
-    lub_prop2 : forall l1 l2 x, leq L l1 x = true /\ leq L l2 x = true -> leq L (lub l1 l2) x = true;
+    lub_prop1 : forall x y, leq L x (lub x y) = true /\ leq L y (lub x y) = true;
+    lub_prop2 : forall x y a, leq L x a = true /\ leq L y a = true -> leq L (lub x y) a = true;
     }.
 
 Module PRODUCT_POSET_THEOREMS.
@@ -81,6 +81,25 @@ Module PRODUCT_LATTICE_THEOREMS.
     Theorem top_prop L1 L2 : forall x, leq (L' L1 L2) x (top L1 L2) = true. topbot L1 L2 top_prop top. Qed.
     Theorem bot_prop L1 L2 : forall x, leq (L' L1 L2) (bot L1 L2) x = true. topbot L1 L2 bot_prop bot. Qed.
 
+    Ltac prop1 L1 L2 which_prop1 := 
+        intros x y; destruct x as [x1 x2], y as [y1 y2];
+
+        (* surprisingly, it doesn't work with either of these (even though they worked interactively) *)
+        (*specialize (which_prop1 L1) as H1; specialize (which_prop1 L2) as H2; *)
+        (*specialize (which_prop1 L1); intro H1; specialize (which_prop1 L2); intro H2;*)
+        (* it works with the following though *)
+        specialize (which_prop1 L1); specialize (which_prop1 L2); intros H2 H1;
+
+        specialize (H1 x1 y1); specialize (H2 x2 y2);
+        simpl; unfold PRODUCT_POSET_THEOREMS.product_leq; simpl;
+        destruct H1 as [Ha Hb]; destruct H2 as [Hc Hd]; rewrite Ha, Hb, Hc, Hd;
+        tauto.
+
+
+    Theorem glb_prop1 L1 L2 : forall x y, leq (L' L1 L2) (glb L1 L2 x y) x = true /\ leq (L' L1 L2) (glb L1 L2 x y) y = true.  prop1 L1 L2 glb_prop1.  Qed.
+    Theorem lub_prop1 L1 L2 : forall x y, leq (L' L1 L2) x (lub L1 L2 x y) = true /\ leq (L' L1 L2) y (lub L1 L2 x y) = true.  prop1 L1 L2 lub_prop1.  Qed.
+
+(*
 End PRODUCT_LATTICE_THEOREMS.
 
 *)
@@ -88,5 +107,7 @@ End PRODUCT_LATTICE_THEOREMS.
 Definition PRODUCT_LATTICE (L1 L2 : LATTICE) : LATTICE := mkLattice (PRODUCT_POSET (L L1) (L L2))
     (PRODUCT_LATTICE_THEOREMS.top L1 L2) (PRODUCT_LATTICE_THEOREMS.bot L1 L2)
     (PRODUCT_LATTICE_THEOREMS.glb L1 L2) (PRODUCT_LATTICE_THEOREMS.lub L1 L2)
-    _ _ _ _ _ _.
+    (PRODUCT_LATTICE_THEOREMS.top_prop L1 L2) (PRODUCT_LATTICE_THEOREMS.bot_prop L1 L2)
+    (PRODUCT_LATTICE_THEOREMS.glb_prop1 L1 L2) _ 
+    (PRODUCT_LATTICE_THEOREMS.lub_prop1 L1 L2) _.
 *)
