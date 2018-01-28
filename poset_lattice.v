@@ -59,8 +59,15 @@ Module PRODUCT_POSET (P1 P2 : POSET) : POSET.
     Qed.
 End PRODUCT_POSET.
 
-(*
 Module PRODUCT_LATTICE (L1 L2 : LATTICE) : LATTICE.
-    
-End PRODUCT_LATTICE.
-*)
+    Module L : POSET := PRODUCT_POSET L1.L L2.L.
+    Definition t : Type := L.t.
+    Definition leq := L.leq.
+
+    Definition top := (L1.top, L2.top).
+    Definition bot := (L1.bot, L2.bot).
+
+    Definition glb x y := (L1.glb (fst x) (fst y), L2.glb (snd x) (snd y)).
+    Definition lub x y := (L1.lub (fst x) (fst y), L2.lub (snd x) (snd y)).
+
+(*End PRODUCT_LATTICE.*)
