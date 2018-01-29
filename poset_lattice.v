@@ -34,6 +34,12 @@ Module PRODUCT_POSET_THEOREMS.
         - specialize (lift_bool (leq P1 t0 t2) (leq P2 t1 t3)).  intros **.  tauto.
         - (compute).  (apply H).
     Qed.
+    Lemma lift_leq' (P1 P2 : POSET) : forall x y, leq P1 (fst x) (fst y) = true /\ leq P2 (snd x) (snd y) = true -> product_leq P1 P2 x y = true.
+        intros x y H.  destruct x as [x1 x2], y as [y1 y2].
+        simpl in H.  destruct H as [H1 H2].
+        unfold product_leq. simpl. rewrite H1; rewrite H2.
+        tauto.
+    Qed.
 
     Theorem refl (P1 P2 : POSET) : forall x, product_leq P1 P2 x x = true.
         intros **.  (destruct x).  (compute).  (rewrite (refl P1)).  (rewrite (refl P2)).  reflexivity.
@@ -99,15 +105,24 @@ Module PRODUCT_LATTICE_THEOREMS.
     Theorem glb_prop1 L1 L2 : forall x y, leq (L' L1 L2) (glb L1 L2 x y) x = true /\ leq (L' L1 L2) (glb L1 L2 x y) y = true.  prop1 L1 L2 glb_prop1.  Qed.
     Theorem lub_prop1 L1 L2 : forall x y, leq (L' L1 L2) x (lub L1 L2 x y) = true /\ leq (L' L1 L2) y (lub L1 L2 x y) = true.  prop1 L1 L2 lub_prop1.  Qed.
 
-(*
+    Ltac prop2 L1 L2 which_prop2 :=
+        intros x y a H; destruct x as [x1 x2], y as [y1 y2], a as [a1 a2], H as [H3 H4];
+        (*specialize (which_prop2 L1) as H1;  specialize (which_prop2 L2) as H2;*)
+        specialize (which_prop2 L1);  specialize (which_prop2 L2); intros H2 H1;
+        specialize (H1 x1 y1 a1); specialize (H2 x2 y2 a2);
+        (apply PRODUCT_POSET_THEOREMS.lift_leq in H3); (apply PRODUCT_POSET_THEOREMS.lift_leq in H4);
+        (*(destruct H3 as [Ha Hb]; destruct H4 as [Hc Hd]);  (simpl in Ha, Hb, Hc, Hd); *)
+        (apply (PRODUCT_POSET_THEOREMS.lift_leq' (L L1) (L L2)));
+        tauto.
+
+    Theorem glb_prop2 L1 L2 : forall x y a, leq (L' L1 L2) a x = true /\ leq (L' L1 L2) a y = true -> leq (L' L1 L2) a (glb L1 L2 x y) = true.  prop2 L1 L2 glb_prop2.  Qed.
+    Theorem lub_prop2 L1 L2 : forall x y a, leq (L' L1 L2) x a = true /\ leq (L' L1 L2) y a = true -> leq (L' L1 L2) (lub L1 L2 x y) a = true.  prop2 L1 L2 lub_prop2.  Qed.
+
 End PRODUCT_LATTICE_THEOREMS.
 
-*)
-(*
 Definition PRODUCT_LATTICE (L1 L2 : LATTICE) : LATTICE := mkLattice (PRODUCT_POSET (L L1) (L L2))
     (PRODUCT_LATTICE_THEOREMS.top L1 L2) (PRODUCT_LATTICE_THEOREMS.bot L1 L2)
     (PRODUCT_LATTICE_THEOREMS.glb L1 L2) (PRODUCT_LATTICE_THEOREMS.lub L1 L2)
     (PRODUCT_LATTICE_THEOREMS.top_prop L1 L2) (PRODUCT_LATTICE_THEOREMS.bot_prop L1 L2)
-    (PRODUCT_LATTICE_THEOREMS.glb_prop1 L1 L2) _ 
-    (PRODUCT_LATTICE_THEOREMS.lub_prop1 L1 L2) _.
-*)
+    (PRODUCT_LATTICE_THEOREMS.glb_prop1 L1 L2) (PRODUCT_LATTICE_THEOREMS.glb_prop2 L1 L2) 
+    (PRODUCT_LATTICE_THEOREMS.lub_prop1 L1 L2) (PRODUCT_LATTICE_THEOREMS.lub_prop2 L1 L2).
