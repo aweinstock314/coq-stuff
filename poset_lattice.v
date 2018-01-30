@@ -1,27 +1,31 @@
 Record POSET : Type := mkPoset {
     t : Type;
     leq : t -> t -> bool;
-    refl : forall x, leq x x = true;
-    antisym : forall x y, leq x y = true /\ leq y x = true -> x = y;
-    trans : forall x y z, leq x y = true /\ leq y z = true -> leq x z = true;
+    }.
+Record POSET_PROOFS : Type := mkPosetProofs {
+    P : POSET;
+    refl : forall x, leq P x x = true;
+    antisym : forall x y, leq P x y = true /\ leq P y x = true -> x = y;
+    trans : forall x y z, leq P x y = true /\ leq P y z = true -> leq P x z = true;
     }.
 
 Record LATTICE : Type := mkLattice {
     L : POSET;
     top : t L;
     bot : t L;
-
     glb : t L -> t L -> t L;
     lub : t L -> t L -> t L;
+    }.
+Record LATTICE_PROOFS : Type := mkLatticeProofs {
+    lat : LATTICE;
+    top_prop : forall x, leq (L lat) x (top lat) = true;
+    bot_prop : forall x, leq (L lat) (bot lat) x = true;
 
-    top_prop : forall x, leq L x top = true;
-    bot_prop : forall x, leq L bot x = true;
+    glb_prop1 : forall x y, leq (L lat) ((glb lat) x y) x = true /\ leq (L lat) ((glb lat) x y) y = true;
+    glb_prop2 : forall x y a, leq (L lat) a x = true /\ leq (L lat) a y = true -> leq (L lat) a ((glb lat) x y) = true;
 
-    glb_prop1 : forall x y, leq L (glb x y) x = true /\ leq L (glb x y) y = true;
-    glb_prop2 : forall x y a, leq L a x = true /\ leq L a y = true -> leq L a (glb x y) = true;
-
-    lub_prop1 : forall x y, leq L x (lub x y) = true /\ leq L y (lub x y) = true;
-    lub_prop2 : forall x y a, leq L x a = true /\ leq L y a = true -> leq L (lub x y) a = true;
+    lub_prop1 : forall x y, leq (L lat) x ((lub lat) x y) = true /\ leq (L lat) y ((lub lat) x y) = true;
+    lub_prop2 : forall x y a, leq (L lat) x a = true /\ leq (L lat) y a = true -> leq (L lat) ((lub lat) x y) a = true;
     }.
 
 Module PRODUCT_POSET_M.
@@ -41,18 +45,18 @@ Module PRODUCT_POSET_M.
         tauto.
     Qed.
 
-    Theorem refl (P1 P2 : POSET) : forall x, product_leq P1 P2 x x = true.
+    Theorem refl (P1 P2 : POSET_PROOFS) : forall x, product_leq (P P1) (P P2) x x = true.
         intros **.  (destruct x).  (compute).  (rewrite (refl P1)).  (rewrite (refl P2)).  reflexivity.
     Qed.
-    Theorem antisym (P1 P2 : POSET) : forall x y, product_leq P1 P2 x y = true /\ product_leq P1 P2 y x = true -> x = y.
+    Theorem antisym (P1 P2 : POSET_PROOFS) : forall x y, product_leq (P P1) (P P2) x y = true /\ product_leq (P P1) (P P2) y x = true -> x = y.
         intros; destruct x,y.
         cut (t0=t2 /\ t1=t3). intro H0; destruct H0; rewrite H0; rewrite H1; reflexivity.
         specialize (antisym P1 t0 t2). specialize (antisym P2 t1 t3). intros.
-        (destruct H). (apply (lift_leq P1 P2) in H; simpl in H). (apply (lift_leq P1 P2) in H2; simpl in H2).
+        (destruct H). (apply (lift_leq (P P1) (P P2)) in H; simpl in H). (apply (lift_leq (P P1) (P P2)) in H2; simpl in H2).
         tauto.
     Qed.
 
-    Theorem trans (P1 P2 : POSET) : forall x y z, product_leq P1 P2 x y = true /\ product_leq P1 P2 y z = true -> product_leq P1 P2 x z = true.
+    Theorem trans (P1 P2 : POSET_PROOFS) : forall x y z, product_leq (P P1) (P P2) x y = true /\ product_leq (P P1) (P P2) y z = true -> product_leq (P P1) (P P2) x z = true.
         intros **. (destruct x, y, z).
         specialize (trans P1 t0 t2 t4). specialize (trans P2 t1 t3 t5). intros **.
         destruct H.
@@ -61,13 +65,16 @@ Module PRODUCT_POSET_M.
         (simpl in H, H2). (destruct H, H2).
         (rewrite H, H2 in H1). (rewrite H3, H4 in H0).
         (destruct H0). tauto. (destruct H1). tauto.
-        (destruct (leq P1 t0 t4); tauto).
+        (destruct (leq (P P1) t0 t4); tauto).
     Qed.
 End PRODUCT_POSET_M.
 
 Definition PRODUCT_POSET (P1 P2 : POSET) : POSET := {|
     t := t P1 * t P2;
     leq := PRODUCT_POSET_M.product_leq P1 P2;
+    |}.
+Definition PRODUCT_POSET_PROOFS (P1 P2 : POSET_PROOFS) : POSET_PROOFS := {|
+    P := PRODUCT_POSET (P P1) (P P2);
     refl := PRODUCT_POSET_M.refl P1 P2;
     antisym := PRODUCT_POSET_M.antisym P1 P2;
     trans := PRODUCT_POSET_M.trans P1 P2
@@ -89,8 +96,8 @@ Module PRODUCT_LATTICE_M.
         rewrite H0; rewrite H;
         reflexivity.
 
-    Theorem top_prop L1 L2 : forall x, leq (L' L1 L2) x (top L1 L2) = true. topbot L1 L2 top_prop top. Qed.
-    Theorem bot_prop L1 L2 : forall x, leq (L' L1 L2) (bot L1 L2) x = true. topbot L1 L2 bot_prop bot. Qed.
+    Theorem top_prop L1 L2 : forall x, leq (L' (lat L1) (lat L2)) x (top (lat L1) (lat L2)) = true. topbot L1 L2 top_prop top. Qed.
+    Theorem bot_prop L1 L2 : forall x, leq (L' (lat L1) (lat L2)) (bot (lat L1) (lat L2)) x = true. topbot L1 L2 bot_prop bot. Qed.
 
     Ltac prop1 L1 L2 which_prop1 :=
         intros x y; destruct x as [x1 x2], y as [y1 y2];
@@ -107,8 +114,8 @@ Module PRODUCT_LATTICE_M.
         tauto.
 
 
-    Theorem glb_prop1 L1 L2 : forall x y, leq (L' L1 L2) (glb L1 L2 x y) x = true /\ leq (L' L1 L2) (glb L1 L2 x y) y = true.  prop1 L1 L2 glb_prop1.  Qed.
-    Theorem lub_prop1 L1 L2 : forall x y, leq (L' L1 L2) x (lub L1 L2 x y) = true /\ leq (L' L1 L2) y (lub L1 L2 x y) = true.  prop1 L1 L2 lub_prop1.  Qed.
+    Theorem glb_prop1 L1 L2 : forall x y, leq (L' (lat L1) (lat L2)) (glb (lat L1) (lat L2) x y) x = true /\ leq (L' (lat L1) (lat L2)) (glb (lat L1) (lat L2) x y) y = true.  prop1 L1 L2 glb_prop1.  Qed.
+    Theorem lub_prop1 L1 L2 : forall x y, leq (L' (lat L1) (lat L2)) x (lub (lat L1) (lat L2) x y) = true /\ leq (L' (lat L1) (lat L2)) y (lub (lat L1) (lat L2) x y) = true.  prop1 L1 L2 lub_prop1.  Qed.
 
     Ltac prop2 L1 L2 which_prop2 :=
         intros x y a H; destruct x as [x1 x2], y as [y1 y2], a as [a1 a2], H as [H3 H4];
@@ -117,11 +124,11 @@ Module PRODUCT_LATTICE_M.
         specialize (H1 x1 y1 a1); specialize (H2 x2 y2 a2);
         (apply PRODUCT_POSET_M.lift_leq in H3); (apply PRODUCT_POSET_M.lift_leq in H4);
         (*(destruct H3 as [Ha Hb]; destruct H4 as [Hc Hd]);  (simpl in Ha, Hb, Hc, Hd); *)
-        (apply (PRODUCT_POSET_M.lift_leq' (L L1) (L L2)));
+        (apply (PRODUCT_POSET_M.lift_leq' (L (lat L1)) (L (lat L2))));
         tauto.
 
-    Theorem glb_prop2 L1 L2 : forall x y a, leq (L' L1 L2) a x = true /\ leq (L' L1 L2) a y = true -> leq (L' L1 L2) a (glb L1 L2 x y) = true.  prop2 L1 L2 glb_prop2.  Qed.
-    Theorem lub_prop2 L1 L2 : forall x y a, leq (L' L1 L2) x a = true /\ leq (L' L1 L2) y a = true -> leq (L' L1 L2) (lub L1 L2 x y) a = true.  prop2 L1 L2 lub_prop2.  Qed.
+    Theorem glb_prop2 L1 L2 : forall x y a, leq (L' (lat L1) (lat L2)) a x = true /\ leq (L' (lat L1) (lat L2)) a y = true -> leq (L' (lat L1) (lat L2)) a (glb (lat L1) (lat L2) x y) = true.  prop2 L1 L2 glb_prop2.  Qed.
+    Theorem lub_prop2 L1 L2 : forall x y a, leq (L' (lat L1) (lat L2)) x a = true /\ leq (L' (lat L1) (lat L2)) y a = true -> leq (L' (lat L1) (lat L2)) (lub (lat L1) (lat L2) x y) a = true.  prop2 L1 L2 lub_prop2.  Qed.
 
 End PRODUCT_LATTICE_M.
 
@@ -129,6 +136,10 @@ Definition PRODUCT_LATTICE (L1 L2 : LATTICE) : LATTICE := {|
     L := PRODUCT_POSET (L L1) (L L2);
     top := PRODUCT_LATTICE_M.top L1 L2; bot := PRODUCT_LATTICE_M.bot L1 L2;
     glb := PRODUCT_LATTICE_M.glb L1 L2; lub := PRODUCT_LATTICE_M.lub L1 L2;
+    |}.
+
+Definition PRODUCT_LATTICE_PROOFS (L1 L2 : LATTICE_PROOFS) : LATTICE_PROOFS := {|
+    lat := PRODUCT_LATTICE (lat L1) (lat L2);
     top_prop := PRODUCT_LATTICE_M.top_prop L1 L2; bot_prop := PRODUCT_LATTICE_M.bot_prop L1 L2;
     glb_prop1 := PRODUCT_LATTICE_M.glb_prop1 L1 L2; glb_prop2 := PRODUCT_LATTICE_M.glb_prop2 L1 L2;
     lub_prop1 := PRODUCT_LATTICE_M.lub_prop1 L1 L2; lub_prop2 := PRODUCT_LATTICE_M.lub_prop2 L1 L2;
@@ -165,13 +176,18 @@ Module FLAT_LATTICE_M.
         - (intros ** ).  (destruct H).  (compute in H, H0). (* (case (dec_eq x y)).
             + intro. rewrite e.  reflexivity.
             + intro. *)
-    Abort.
+    Admitted.
+    Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
+    Admitted.
 End FLAT_LATTICE_M.
 
-(*
-Definition FLAT_LATTICE_POSET (A : Set) (dec_eq : forall x y : A, {x = y} + {x <> y}) : POSET {|
+Definition FLAT_LATTICE_POSET (A : Set) (dec_eq : forall x y : A, {x = y} + {x <> y}) : POSET := {|
     t := @ FLAT_LATTICE_M.FLAT_LATTICE_T A dec_eq;
     leq := @ FLAT_LATTICE_M.flat_lattice_leq A dec_eq;
-    refl := FLAT_LATTICE_M.refl A dec_eq;
     |}.
-*)
+Definition FLAT_LATTICE_POSET_PROOFS (A : Set) (dec_eq : forall x y : A, {x = y} + {x <> y}) : POSET_PROOFS := {|
+    P := FLAT_LATTICE_POSET A dec_eq;
+    refl := FLAT_LATTICE_M.refl A dec_eq;
+    antisym := FLAT_LATTICE_M.antisym A dec_eq;
+    trans := FLAT_LATTICE_M.trans A dec_eq;
+    |}.
