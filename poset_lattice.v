@@ -145,8 +145,8 @@ Definition PRODUCT_LATTICE_PROOFS (L1 L2 : LATTICE_PROOFS) : LATTICE_PROOFS := {
     lub_prop1 := PRODUCT_LATTICE_M.lub_prop1 L1 L2; lub_prop2 := PRODUCT_LATTICE_M.lub_prop2 L1 L2;
     |}.
 
+Variant FLAT_LATTICE_T {A : Set} {dec_eq : forall x y : A, {x = y} + {x <> y}} : Set := Bot : FLAT_LATTICE_T | Elem : A -> FLAT_LATTICE_T | Top : FLAT_LATTICE_T.
 Module FLAT_LATTICE_M.
-    Variant FLAT_LATTICE_T {A : Set} {dec_eq : forall x y : A, {x = y} + {x <> y}} : Set := Bot : FLAT_LATTICE_T | Elem : A -> FLAT_LATTICE_T | Top : FLAT_LATTICE_T.
     Definition flat_lattice_leq {A : Set} {dec_eq : forall x y : A, {x = y} + {x <> y}} (x y : FLAT_LATTICE_T (dec_eq := dec_eq) ) : bool := match (x, y) with
         | (Bot, Bot) => true
         | (Bot, _) => false
@@ -179,10 +179,25 @@ Module FLAT_LATTICE_M.
     Admitted.
     Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
     Admitted.
+
+    Definition glb A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)) :=
+        match (x,y) with
+        | (Bot, _) => Bot | (_, Bot) => Bot
+        | (Elem x, Elem y) => sumbool_rec (fun _ => @ FLAT_LATTICE_T A dec_eq) (fun _ => Elem x) (fun _ => Bot) (dec_eq x y)
+        | (Elem x, Top) => Elem x | (Top, Elem x) => Elem x
+        | (Top, Top) => Top
+        end.
+    Definition lub A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)) :=
+        match (x,y) with
+        | (Bot, Bot) => Bot
+        | (Elem x, Bot) => Elem x | (Bot, Elem x) => Elem x
+        | (Elem x, Elem y) => sumbool_rec (fun _ => @ FLAT_LATTICE_T A dec_eq) (fun _ => Elem x) (fun _ => Top) (dec_eq x y)
+        | (Top, _) => Top | (_, Top) => Top
+        end.
 End FLAT_LATTICE_M.
 
 Definition FLAT_LATTICE_POSET (A : Set) (dec_eq : forall x y : A, {x = y} + {x <> y}) : POSET := {|
-    t := @ FLAT_LATTICE_M.FLAT_LATTICE_T A dec_eq;
+    t := @ FLAT_LATTICE_T A dec_eq;
     leq := @ FLAT_LATTICE_M.flat_lattice_leq A dec_eq;
     |}.
 Definition FLAT_LATTICE_POSET_PROOFS (A : Set) (dec_eq : forall x y : A, {x = y} + {x <> y}) : POSET_PROOFS := {|
@@ -191,3 +206,11 @@ Definition FLAT_LATTICE_POSET_PROOFS (A : Set) (dec_eq : forall x y : A, {x = y}
     antisym := FLAT_LATTICE_M.antisym A dec_eq;
     trans := FLAT_LATTICE_M.trans A dec_eq;
     |}.
+Definition FLAT_LATTICE_LATTICE (A : Set) (dec_eq : forall x y : A, {x = y} + {x <> y}) : LATTICE := {|
+    L := FLAT_LATTICE_POSET A dec_eq;
+    top := Top; bot := Bot;
+    glb := FLAT_LATTICE_M.glb A dec_eq; lub := FLAT_LATTICE_M.lub A dec_eq;
+    |}.
+
+Scheme Equality for nat.
+Definition nat_lat := FLAT_LATTICE_LATTICE nat nat_eq_dec.
