@@ -239,4 +239,34 @@ Module LISTSET_M.
     Theorem powerset_length : forall (A : Type) (l : list A), length (powerset l) = expnat 2 (length l).
         simple_list_induction l idtac ltac:(rewrite length_app_plus, plus_rightid, <- (@ length_map (list A) (list A) (cons x))).
     Qed.
+
+    Definition union := app.
+    Fixpoint intersection A dec_eq l1 l2 := match l1 with
+        | nil => nil
+        | cons x xs => (if elem A dec_eq x l2 then cons x else (fun a => a)) (intersection A dec_eq xs l2)
+        end.
+
+    Theorem subset_nil : forall A dec_eq (x : list A), subset A dec_eq x nil = true -> x = nil.
+        (intros **). (induction x). reflexivity. (compute in H). discriminate H. Qed.
+    (*Theorem subset_trans : forall A dec_eq (x y z : list A), subset A dec_eq x y = true /\ subset A dec_eq y z = true -> subset A dec_eq x z = true.
+        (intros ** ).  (destruct H).  (induction y).
+        - (rewrite (subset_nil A dec_eq x H)).  (apply H0).
+        - 
+    *)
+
 End LISTSET_M.
+
+Definition wrap_exists A B P (f : A -> A -> B) := fun (x y : { z : A | P z }) => match (x, y) with (exist _ x _, exist _ y _) => f x y end.
+Definition SUBSET_T A dec_eq (l : list A) := { x : list A | LISTSET_M.subset A dec_eq x l = true }.
+
+Definition SET_POSET A dec_eq (ltop : list A) : POSET := {|
+    t := SUBSET_T A dec_eq ltop;
+    leq := wrap_exists _ _ _ (LISTSET_M.subset A dec_eq);
+    |}.
+(*Definition SET_LATTICE A dec_eq (ltop : list A) : LATTICE := {|
+    L := SET_POSET A dec_eq ltop;
+    bot := exist _ nil _; top := exist _ ltop _;
+    glb := wrap_exists _ _ _ (LISTSET_M.intersection A dec_eq);
+    lub := wrap_exists _ _ _ (LISTSET_M.union);
+    |}.
+*)
