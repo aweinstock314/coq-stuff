@@ -1,6 +1,7 @@
 Module Peano.
 
 Inductive Nat : Set := Z : Nat | S : Nat -> Nat.
+Scheme Equality for Nat.
 
 (* Convertions to Coq's built-in peano naturals *)
 Fixpoint nat2Nat (n : nat) : Nat := match n with 0 => Z | Coq.Init.Datatypes.S n => S (nat2Nat n) end.
