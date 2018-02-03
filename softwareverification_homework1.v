@@ -81,7 +81,9 @@ Theorem mult_commutative : forall n m, n * m = m * n.
 (*
 The original goal of part 1 (that exponentiation distributes over multiplication) 
 involves term rewriting using multiplication's associativity / commutatitivity, 
-which all of the above was building up to.
+which all of the above was building up to. The first one was written purely 
+interactively, the second one was written with the benefit of hindsight and 
+includes the intermediate contexts to make the rewrites visible in the source.
 *)
 Theorem exp_dist : forall n x y, exp (x*y) n = exp x n * exp y n.
     intros n x y. induction n.
@@ -94,6 +96,31 @@ Theorem exp_dist : forall n x y, exp (x*y) n = exp x n * exp y n.
         repeat rewrite mult_associative.
         reflexivity.
     Qed.
+
+Theorem exp_dist' : forall n x y, exp (x*y) n = exp x n * exp y n.
+    intros n x y. induction n as [| n IHn].
+    - reflexivity.
+    - simpl. repeat match goal with
+    | |- (x * y) * exp (x * y) n = (x * exp x n) * (y * exp y n) => rewrite (mult_associative x (exp x n) (y * exp y n))
+    | |- (x * y) * exp (x * y) n = x * (exp x n * (y * exp y n)) => rewrite <- (mult_associative (exp x n) y (exp y n))
+    | |- (x * y) * exp (x * y) n = x * ((exp x n * y) * exp y n) => rewrite (mult_commutative (exp x n) y)
+    | |- (x * y) * exp (x * y) n = x * ((y * exp x n) * exp y n) => rewrite IHn
+    | |- (x * y) * (exp x n * exp y n) = x * ((y * exp x n) * exp y n) => repeat rewrite mult_associative
+    end. reflexivity.
+    Qed.
+
+Require Import Ring_theory.
+Theorem eq_sym : forall (T : Type) (A B : T), (A = B) -> (B = A). intros T A B H. rewrite H. reflexivity. Qed.
+Definition nat_semiring : Ring_theory.semi_ring_theory 0 1 plus mult eq := {|
+    SRadd_0_l := fun x => eq_refl;
+    SRadd_comm := plus_commutative;
+    SRadd_assoc := (fun x y z => eq_sym _ _ _ (@ plus_associative x y z));
+    SRmul_1_l := fun x : nat => (fun e : 1 * x = x => e) ltac:(simpl; rewrite plus_rightzero; reflexivity);
+    SRmul_0_l := fun x => eq_refl;
+    SRmul_comm := mult_commutative;
+    SRmul_assoc := (fun x y z => eq_sym _ _ _ (@ mult_associative x y z));
+    SRdistr_l := mult_rightdist;
+    |}.
 
 (*
 For part 2, I did each proof both with explicit term manipulation, and then 
