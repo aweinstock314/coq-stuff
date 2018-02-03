@@ -172,11 +172,15 @@ Module FLAT_LATTICE_M.
         - (intros **).  (destruct H).  (compute in H0).  discriminate H0.
         - (intros **).  (destruct H).  (compute in H0).  discriminate H0.
         - (intros **).  (destruct H).  (compute in H).  discriminate H.
-
-        - (intros ** ).  (destruct H).  (compute in H, H0). (* (case (dec_eq x y)).
-            + intro. rewrite e.  reflexivity.
-            + intro. *)
-    Admitted.
+        - (intros ** ).  (destruct H).  (compute in H, H0).  (destruct dec_eq).
+        (* this case distilled to `dec_eq_minimal_repro.v` *)
+            + (rewrite e). reflexivity.
+            + discriminate H.
+        - compute. intros. discriminate (proj2 H).
+        - compute. intros. discriminate (proj1 H).
+        - compute. intros. discriminate (proj1 H).
+        - compute. intros. reflexivity.
+    Qed.
     Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
     Admitted.
 
@@ -247,7 +251,7 @@ Module LISTSET_M.
         end.
 
     Theorem subset_nil : forall A dec_eq (x : list A), subset A dec_eq x nil = true -> x = nil.
-        (intros **). (induction x). reflexivity. (compute in H). discriminate H. Qed.
+        (intros ** ). (induction x). reflexivity. (compute in H). discriminate H. Qed.
     (*Theorem subset_trans : forall A dec_eq (x y z : list A), subset A dec_eq x y = true /\ subset A dec_eq y z = true -> subset A dec_eq x z = true.
         (intros ** ).  (destruct H).  (induction y).
         - (rewrite (subset_nil A dec_eq x H)).  (apply H0).
