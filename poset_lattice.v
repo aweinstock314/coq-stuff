@@ -293,6 +293,23 @@ Module LISTSET_M.
 
     Theorem subset_nil : forall A dec_eq (x : list A), subset A dec_eq x nil = true -> x = nil.
         (intros ** ). (induction x). reflexivity. (compute in H). discriminate H. Qed.
+    Theorem subset_antisym : forall A dec_eq (x y : list A), subset A dec_eq x y = true /\ subset A dec_eq y x = true -> eqset A dec_eq x y = true.
+        intros. (simpl). (unfold eqset). (destruct H). (rewrite H, H0). (simpl). reflexivity. Qed.
+    (*Theorem subset_cons : forall A dec_eq (a : A) (x y : list A), subset A dec_eq x (a :: y) = true -> elem A dec_eq a x = true \/ subset A dec_eq x y = true.
+        intros A dec_eq a x y H. induction x.
+        - simpl. tauto.
+        - simpl. unfold sumbool_rec. unfold sumbool_rect. destruct dec_eq.
+            + simpl. tauto.
+            + simpl.
+    *)
+    (*Theorem subset_constail : forall A dec_eq (a : A) (x y : list A), subset A dec_eq x y = true -> subset A dec_eq x (a :: y) = true.
+        intros A dec_eq a x y H.*)
+    (*Theorem subset_refl : forall A dec_eq (x : list A), subset A dec_eq x x = true.
+    intros A dec_eq x. induction x .
+    - reflexivity.
+    - simpl. unfold sumbool_rec. unfold sumbool_rect. destruct dec_eq.
+        + simpl.
+    *)
     (*Theorem subset_trans : forall A dec_eq (x y z : list A), subset A dec_eq x y = true /\ subset A dec_eq y z = true -> subset A dec_eq x z = true.
         (intros ** ).  (destruct H).  (induction y).
         - (rewrite (subset_nil A dec_eq x H)).  (apply H0).
@@ -308,10 +325,15 @@ Definition SET_POSET A dec_eq (ltop : list A) : POSET := {|
     t := SUBSET_T A dec_eq ltop;
     leq := wrap_exists _ _ _ (LISTSET_M.subset A dec_eq);
     |}.
-(*Definition SET_LATTICE A dec_eq (ltop : list A) : LATTICE := {|
+(*
+Program Definition SET_LATTICE A dec_eq (ltop : list A) : LATTICE := {|
     L := SET_POSET A dec_eq ltop;
     bot := exist _ nil _; top := exist _ ltop _;
-    glb := wrap_exists _ _ _ (LISTSET_M.intersection A dec_eq);
-    lub := wrap_exists _ _ _ (LISTSET_M.union);
+    glb := _;
+    lub := _;
     |}.
+Next Obligation.
+    simpl. induction ltop.
+    - reflexivity.
+    - simpl. unfold sumbool_rec. unfold sumbool_rect. destruct dec_eq. simpl.
 *)
