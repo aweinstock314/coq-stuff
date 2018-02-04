@@ -109,18 +109,31 @@ Theorem exp_dist' : forall n x y, exp (x*y) n = exp x n * exp y n.
     end. reflexivity.
     Qed.
 
-Require Import Ring_theory.
-Theorem eq_sym : forall (T : Type) (A B : T), (A = B) -> (B = A). intros T A B H. rewrite H. reflexivity. Qed.
+(*
+The third proof of distributivity (exp_dist'') makes use of Coq's library for 
+reasoning about algebraic [semi-]rings. It handles associative/commutative 
+rewrites by abstracting terms into variables in a polynomial and putting the 
+polynomial into canonical form. This results in an extremely short/robust 
+proof. The bulk of the work of proving that Peano naturals form a semiring is 
+{associativity,commutativity} of {addition,multiplication}; the remainder is 
+straightforward reductions involving 0/1.
+*)
+
+Require Export Ring.
 Definition nat_semiring : Ring_theory.semi_ring_theory 0 1 plus mult eq := {|
-    SRadd_0_l := fun x => eq_refl;
+    SRadd_0_l := fun _ => eq_refl;
     SRadd_comm := plus_commutative;
-    SRadd_assoc := (fun x y z => eq_sym _ _ _ (@ plus_associative x y z));
-    SRmul_1_l := fun x : nat => (fun e : 1 * x = x => e) ltac:(simpl; rewrite plus_rightzero; reflexivity);
-    SRmul_0_l := fun x => eq_refl;
+    SRadd_assoc := (fun x y z => eq_sym (@ plus_associative x y z));
+    SRmul_1_l := fun x => ltac:(simpl; rewrite plus_rightzero; reflexivity) : 1 * x = x;
+    SRmul_0_l := fun _ => eq_refl;
     SRmul_comm := mult_commutative;
-    SRmul_assoc := (fun x y z => eq_sym _ _ _ (@ mult_associative x y z));
+    SRmul_assoc := (fun x y z => eq_sym (@ mult_associative x y z));
     SRdistr_l := mult_rightdist;
     |}.
+Add Ring nat_semiring : nat_semiring.
+Theorem exp_dist'' : forall n x y, exp (x*y) n = exp x n * exp y n.
+    intros n x y; induction n as [| n IHn]; simpl; [| rewrite IHn; ring_simplify ]; reflexivity.
+    Qed.
 
 (*
 For part 2, I did each proof both with explicit term manipulation, and then 
