@@ -39,6 +39,14 @@ Module LATTICE_M.
         tauto.
     Theorem glb_idempotent : forall (LP : LATTICE_PROOFS) x, x = glb (lat LP) x x. both_idempotent glb glb_prop1 glb_prop2. Qed.
     Theorem lub_idempotent : forall (LP : LATTICE_PROOFS) x, x = lub (lat LP) x x. both_idempotent lub lub_prop1 lub_prop2. Qed.
+
+    Ltac leq_both_eq which prop :=
+        intros LP x H; destruct (pos LP) as [PP e];
+        specialize (prop LP x); intro;
+        specialize (antisym PP); intros Has; rewrite <- e in Has; specialize (Has x (which (lat LP)));
+        tauto.
+    Theorem leq_top_eq : forall (LP : LATTICE_PROOFS) x, leq (L (lat LP)) (top (lat LP)) x = true -> x = (top (lat LP)). leq_both_eq top top_prop. Qed.
+    Theorem leq_bot_eq : forall (LP : LATTICE_PROOFS) x, leq (L (lat LP)) x (bot (lat LP)) = true -> x = (bot (lat LP)). leq_both_eq bot bot_prop. Qed.
 End LATTICE_M.
 
 Module PRODUCT_POSET_M.
