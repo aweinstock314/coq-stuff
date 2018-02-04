@@ -18,6 +18,7 @@ Record LATTICE : Type := mkLattice {
     }.
 Record LATTICE_PROOFS : Type := mkLatticeProofs {
     lat : LATTICE;
+    pos : { p : POSET_PROOFS | L lat = P p };
     top_prop : forall x, leq (L lat) x (top lat) = true;
     bot_prop : forall x, leq (L lat) (bot lat) x = true;
 
@@ -27,6 +28,18 @@ Record LATTICE_PROOFS : Type := mkLatticeProofs {
     lub_prop1 : forall x y, leq (L lat) x ((lub lat) x y) = true /\ leq (L lat) y ((lub lat) x y) = true;
     lub_prop2 : forall x y a, leq (L lat) x a = true /\ leq (L lat) y a = true -> leq (L lat) ((lub lat) x y) a = true;
     }.
+
+Module LATTICE_M.
+    (*Definition wit {T : Type} {P : T -> Prop} {y : T} (x : { y : T | P y }) : T := match x with exist _ t _ => t end.*)
+    Ltac both_idempotent which prop1 prop2 :=
+        intros LP x; destruct (pos LP) as [PP e];
+        specialize (prop1 LP x x); specialize (prop2 LP x x x);
+        specialize (refl PP); intros Hr; rewrite <- e in Hr; specialize (Hr x);
+        specialize (antisym PP); intros Has; rewrite <- e in Has; specialize (Has x (which (lat LP) x x));
+        tauto.
+    Theorem glb_idempotent : forall (LP : LATTICE_PROOFS) x, x = glb (lat LP) x x. both_idempotent glb glb_prop1 glb_prop2. Qed.
+    Theorem lub_idempotent : forall (LP : LATTICE_PROOFS) x, x = lub (lat LP) x x. both_idempotent lub lub_prop1 lub_prop2. Qed.
+End LATTICE_M.
 
 Module PRODUCT_POSET_M.
     Definition product_leq P1 P2 x y := andb (leq P1 (fst x) (fst y)) (leq P2 (snd x) (snd y)).
@@ -138,18 +151,20 @@ Definition PRODUCT_LATTICE (L1 L2 : LATTICE) : LATTICE := {|
     glb := PRODUCT_LATTICE_M.glb L1 L2; lub := PRODUCT_LATTICE_M.lub L1 L2;
     |}.
 
-Definition PRODUCT_LATTICE_PROOFS (L1 L2 : LATTICE_PROOFS) : LATTICE_PROOFS := {|
+Require Import Coq.Program.Tactics.
+Program Definition PRODUCT_LATTICE_PROOFS (L1 L2 : LATTICE_PROOFS) : LATTICE_PROOFS := {|
     lat := PRODUCT_LATTICE (lat L1) (lat L2);
+    pos := match (pos L1, pos L2) with (exist _ p1 e1, exist _ p2 e2) => exist _ (PRODUCT_POSET_PROOFS p1 p2) _ end;
     top_prop := PRODUCT_LATTICE_M.top_prop L1 L2; bot_prop := PRODUCT_LATTICE_M.bot_prop L1 L2;
     glb_prop1 := PRODUCT_LATTICE_M.glb_prop1 L1 L2; glb_prop2 := PRODUCT_LATTICE_M.glb_prop2 L1 L2;
     lub_prop1 := PRODUCT_LATTICE_M.lub_prop1 L1 L2; lub_prop2 := PRODUCT_LATTICE_M.lub_prop2 L1 L2;
     |}.
+Next Obligation. rewrite e1; rewrite e2; reflexivity. Qed.
 
 Variant FLAT_LATTICE_T {A : Set} {dec_eq : forall x y : A, {x = y} + {x <> y}} : Set := Bot : FLAT_LATTICE_T | Elem : A -> FLAT_LATTICE_T | Top : FLAT_LATTICE_T.
 Module FLAT_LATTICE_M.
     Definition flat_lattice_leq {A : Set} {dec_eq : forall x y : A, {x = y} + {x <> y}} (x y : FLAT_LATTICE_T (dec_eq := dec_eq) ) : bool := match (x, y) with
-        | (Bot, Bot) => true
-        | (Bot, _) => false
+        | (Bot, _) => true
         | (_, Top) => true
         | (Elem x, Elem y) => sumbool_rec (fun _ => bool) (fun _ => true) (fun _ => false) (dec_eq x y)
         | _ => false
@@ -169,9 +184,9 @@ Module FLAT_LATTICE_M.
     (intros A dec_eq x y).
     (destruct x as [| x |], y as [| y |]).
         - trivial.
-        - (intros **).  (destruct H).  (compute in H0).  discriminate H0.
-        - (intros **).  (destruct H).  (compute in H0).  discriminate H0.
-        - (intros **).  (destruct H).  (compute in H).  discriminate H.
+        - (intros ** ).  (destruct H).  (compute in H0).  discriminate H0.
+        - (intros ** ).  (destruct H).  (compute in H0).  discriminate H0.
+        - (intros ** ).  (destruct H).  (compute in H).  discriminate H.
         - (intros ** ).  (destruct H).  (compute in H, H0).  (destruct dec_eq).
         (* this case distilled to `dec_eq_minimal_repro.v` *)
             + (rewrite e). reflexivity.
@@ -182,6 +197,18 @@ Module FLAT_LATTICE_M.
         - compute. intros. reflexivity.
     Qed.
     Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
+        intros A dec_eq x y z H. destruct H as [Hxy Hyz]. induction x.
+            - compute. reflexivity.
+            - induction y.
+                + compute in Hxy. discriminate.
+                + compute in Hxy. destruct dec_eq.
+                    * rewrite e. exact Hyz.
+                    * discriminate Hxy.
+                + induction z.
+                    * compute in Hyz. discriminate.
+                    * compute in Hyz. discriminate.
+                    * exact Hxy.
+            -
     Admitted.
 
     Definition glb A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)) :=
