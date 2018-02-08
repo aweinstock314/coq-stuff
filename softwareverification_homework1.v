@@ -124,7 +124,7 @@ Definition nat_semiring : Ring_theory.semi_ring_theory 0 1 plus mult eq := {|
     SRadd_0_l := fun _ => eq_refl;
     SRadd_comm := plus_commutative;
     SRadd_assoc := (fun x y z => eq_sym (@ plus_associative x y z));
-    SRmul_1_l := fun x => ltac:(simpl; rewrite plus_rightzero; reflexivity) : 1 * x = x;
+    SRmul_1_l := plus_rightzero;
     SRmul_0_l := fun _ => eq_refl;
     SRmul_comm := mult_commutative;
     SRmul_assoc := (fun x y z => eq_sym (@ mult_associative x y z));
