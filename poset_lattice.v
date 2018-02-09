@@ -295,13 +295,35 @@ Module LISTSET_M.
         (intros ** ). (induction x). reflexivity. (compute in H). discriminate H. Qed.
     Theorem subset_antisym : forall A dec_eq (x y : list A), subset A dec_eq x y = true /\ subset A dec_eq y x = true -> eqset A dec_eq x y = true.
         intros. (simpl). (unfold eqset). (destruct H). (rewrite H, H0). (simpl). reflexivity. Qed.
-    (*Theorem subset_cons : forall A dec_eq (a : A) (x y : list A), subset A dec_eq x (a :: y) = true -> elem A dec_eq a x = true \/ subset A dec_eq x y = true.
+    Theorem elem_liftbool : forall A dec_eq (a b : A) (x : list A), elem A dec_eq a (b :: x)%list = true -> (a = b \/ (a <> b /\ elem A dec_eq a x = true)).
+        intros A dec_eq a b x H; inversion H; destruct dec_eq as [e | n]; [ exact (or_introl e) | right; (unfold sumbool_rec, sumbool_rect); exact (conj n eq_refl)]. Qed.
+    Theorem elem_cons_eq : forall A dec_eq (a b : A) (x : list A), a = b -> elem A dec_eq a (b :: x)%list = true.
+        intros A dec_eq a b x e; rewrite e; compute; destruct (dec_eq b b); [|contradict n]; reflexivity. Qed.
+    Theorem elem_cons_neq : forall A dec_eq (a b : A) (x : list A), a <> b -> elem A dec_eq a (b :: x)%list = elem A dec_eq a x.
+        intros A dec_eq a b x n; simpl; unfold sumbool_rec, sumbool_rect; destruct dec_eq as [e|_]; [exact match n e with end | reflexivity]. Qed.
+    Theorem elem_cons_extend : forall A dec_eq (a b : A) (x : list A), elem A dec_eq a x = true -> elem A dec_eq a (b :: x) = true.
+        (intros A dec_eq a b x).  (induction x).
+        - intro H.  discriminate H.
+        - intro H.
+            specialize (elem_liftbool A dec_eq a a0 x H) as H0.
+            (destruct (dec_eq a b)).
+            + exact (elem_cons_eq A dec_eq a b (a0 :: x)%list e).
+            + rewrite (elem_cons_neq A dec_eq a b (a0 :: x)%list n).
+            (destruct H0).  (compute).  (destruct (dec_eq a a0)).
+                * reflexivity.
+                * exact match n0 H0 with end.
+                * exact H.
+        Qed.
+    (*Theorem subset_lcons : forall A dec_eq (a : A) (x y : list A), subset A dec_eq (a :: x) y = true -> subset A dec_eq x y = true.
+(intros A dec_eq a x y H). (induction x).
+    - reflexivity.
+    -*)
+    (*Theorem subset_rcons : forall A dec_eq (a : A) (x y : list A), subset A dec_eq x (a :: y) = true -> elem A dec_eq a x = true \/ subset A dec_eq x y = true.
         intros A dec_eq a x y H. induction x.
         - simpl. tauto.
         - simpl. unfold sumbool_rec. unfold sumbool_rect. destruct dec_eq.
             + simpl. tauto.
-            + simpl.
-    *)
+            + simpl.*)
     (*Theorem subset_constail : forall A dec_eq (a : A) (x y : list A), subset A dec_eq x y = true -> subset A dec_eq x (a :: y) = true.
         intros A dec_eq a x y H.*)
     (*Theorem subset_refl : forall A dec_eq (x : list A), subset A dec_eq x x = true.
