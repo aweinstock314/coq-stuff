@@ -182,24 +182,13 @@ Module FLAT_LATTICE_M.
         intros A dec_eq x; destruct (dec_eq x x) as [l | r] ; [refine (@exist (x = x) _ l _) | contradict r]; reflexivity.
     Qed.
     Theorem refl : forall A dec_eq (x : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x x = true.
-    intros A dec_eq x; destruct x as [|x|];
-    [ simpl
-    | specialize (dec_eq_refl A dec_eq x) as H; destruct H as [x0 H0]; compute; rewrite H0
-    | simpl
-    ]; reflexivity.
+        intros A dec_eq x; destruct x as [|x|]; simpl; [| specialize (dec_eq_refl A dec_eq x) as H; destruct H as [x0 H0]; compute; rewrite H0 |]; reflexivity.
     Qed.
     Theorem antisym : forall A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y x = true -> x = y.
-    (intros A dec_eq x y).
-    (destruct x as [| x |], y as [| y |]); compute; intro H.
-        - reflexivity.
-        - try discriminate (proj1 H); discriminate (proj2 H).
-        - try discriminate (proj1 H); discriminate (proj2 H).
-        - try discriminate (proj1 H); discriminate (proj2 H).
-        - destruct dec_eq;  [rewrite e; reflexivity | discriminate (proj1 H)]. (* this case distilled to `dec_eq_minimal_repro.v` *)
-        - try discriminate (proj1 H); discriminate (proj2 H).
-        - try discriminate (proj1 H); discriminate (proj2 H).
-        - try discriminate (proj1 H); discriminate (proj2 H).
-        - reflexivity.
+        intros A dec_eq x y; destruct x as [| x |], y as [| y |]; compute; intro H; try reflexivity; match goal with
+        | |- Elem _ = Elem _ => destruct dec_eq; [rewrite e; reflexivity | discriminate (proj1 H)] (* this case distilled to `dec_eq_minimal_repro.v` *)
+        | _ => try discriminate (proj1 H); discriminate (proj2 H)
+        end.
     Qed.
     Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
         intros A dec_eq x y z H. destruct H as [Hxy Hyz]. destruct x.
