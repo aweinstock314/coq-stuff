@@ -302,10 +302,7 @@ Module LISTSET_M.
     Theorem elem_cons_neq : forall A dec_eq (a b : A) (x : list A), a <> b -> elem A dec_eq a (b :: x)%list = elem A dec_eq a x.
         intros A dec_eq a b x n; simpl; unfold sumbool_rec, sumbool_rect; destruct dec_eq as [e|_]; [exact match n e with end | reflexivity]. Qed.
     Theorem elem_cons_extend : forall A dec_eq (a b : A) (xs : list A), elem A dec_eq a xs = true -> elem A dec_eq a (b :: xs) = true.
-        intros A dec_eq a b xs. intro a_in_xs. destruct (dec_eq a b) as [eq_ab | neq_ab].
-        - exact (elem_cons_eq A dec_eq a b xs eq_ab).
-        - rewrite (elem_cons_neq A dec_eq a b xs neq_ab). exact a_in_xs.
-        Qed.
+        intros A dec_eq a b xs a_in_xs; destruct (dec_eq a b); [exact (elem_cons_eq A _ a b xs e) | rewrite (elem_cons_neq A _ a b xs n); exact a_in_xs]. Qed.
     (*Theorem subset_lcons : forall A dec_eq (a : A) (x y : list A), subset A dec_eq (a :: x) y = true -> subset A dec_eq x y = true.
 (intros A dec_eq a x y H). (induction x).
     - reflexivity.
