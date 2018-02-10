@@ -190,19 +190,16 @@ Module FLAT_LATTICE_M.
     Qed.
     Theorem antisym : forall A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y x = true -> x = y.
     (intros A dec_eq x y).
-    (destruct x as [| x |], y as [| y |]).
-        - trivial.
-        - (intros ** ).  (destruct H).  (compute in H0).  discriminate H0.
-        - (intros ** ).  (destruct H).  (compute in H0).  discriminate H0.
-        - (intros ** ).  (destruct H).  (compute in H).  discriminate H.
-        - (intros ** ).  (destruct H).  (compute in H, H0).  (destruct dec_eq).
-        (* this case distilled to `dec_eq_minimal_repro.v` *)
-            + (rewrite e). reflexivity.
-            + discriminate H.
-        - compute. intros. discriminate (proj2 H).
-        - compute. intros. discriminate (proj1 H).
-        - compute. intros. discriminate (proj1 H).
-        - compute. intros. reflexivity.
+    (destruct x as [| x |], y as [| y |]); compute; intro H.
+        - reflexivity.
+        - try discriminate (proj1 H); discriminate (proj2 H).
+        - try discriminate (proj1 H); discriminate (proj2 H).
+        - try discriminate (proj1 H); discriminate (proj2 H).
+        - destruct dec_eq;  [rewrite e; reflexivity | discriminate (proj1 H)]. (* this case distilled to `dec_eq_minimal_repro.v` *)
+        - try discriminate (proj1 H); discriminate (proj2 H).
+        - try discriminate (proj1 H); discriminate (proj2 H).
+        - try discriminate (proj1 H); discriminate (proj2 H).
+        - reflexivity.
     Qed.
     Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
         intros A dec_eq x y z H. destruct H as [Hxy Hyz]. destruct x.
