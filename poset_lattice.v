@@ -333,12 +333,12 @@ Module LISTSET_M.
 
 End LISTSET_M.
 
-Definition wrap_exists A B P (f : A -> A -> B) := fun (x y : { z : A | P z }) => match (x, y) with (exist _ x _, exist _ y _) => f x y end.
+Definition wrap_exists {A B P} (f : A -> A -> B) := fun (x y : { z : A | P z }) => match (x, y) with (exist _ x _, exist _ y _) => f x y end.
 Definition SUBSET_T A dec_eq (l : list A) := { x : list A | LISTSET_M.subset A dec_eq x l = true }.
 
 Definition SET_POSET A dec_eq (ltop : list A) : POSET := {|
     t := SUBSET_T A dec_eq ltop;
-    leq := wrap_exists _ _ _ (LISTSET_M.subset A dec_eq);
+    leq := wrap_exists (LISTSET_M.subset A dec_eq);
     |}.
 (*
 Program Definition SET_LATTICE A dec_eq (ltop : list A) : LATTICE := {|
