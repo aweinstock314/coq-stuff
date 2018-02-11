@@ -191,24 +191,10 @@ Module FLAT_LATTICE_M.
         end.
     Qed.
     Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
-        intros A dec_eq x y z H. destruct H as [Hxy Hyz]. destruct x.
-            - compute. reflexivity.
-            - destruct y.
-                + compute in Hxy. discriminate.
-                + compute in Hxy. destruct dec_eq.
-                    * rewrite e. exact Hyz.
-                    * discriminate Hxy.
-                + destruct z.
-                    * compute in Hyz. discriminate.
-                    * compute in Hyz. discriminate.
-                    * exact Hxy.
-            - destruct y.
-                + compute in Hxy. discriminate.
-                + compute in Hxy. discriminate.
-                + destruct z.
-                    * compute in Hyz. discriminate.
-                    * compute in Hyz. discriminate.
-                    * exact Hxy.
+        intros A dec_eq x y z H. destruct H as [Hxy Hyz].
+        destruct x, y, z; compute; try reflexivity; try discriminate.
+        compute in Hxy, Hyz; destruct (dec_eq a a0), (dec_eq a0 a1), (dec_eq a a1); try reflexivity; try discriminate.
+        rewrite <- e in e0; destruct (n e0).
     Qed.
 
     Definition glb A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)) :=
