@@ -29,11 +29,12 @@ Module POSET_ISOMORPHISMS.
         intro x; simpl; unfold to_leq; destruct (pcomp p x x); try contradiction; reflexivity. Qed.
     Theorem to_antisym (p : POSET') : forall x y, leq (to p) x y = true /\ leq (to p) y x = true -> x = y.
         intros x y; simpl; unfold to_leq.
+        specialize (trans_l p x y x) as trans_l_instance.
         destruct (pcomp p x y), (pcomp p y x); (* 4*4 = 16 cases to handle *)
             try [> intro H; destruct H; discriminate]; (* all 12 cases involving Greater/Uncomparable follow vacuously *)
             try [> intro; try exact e; exact (eq_sym e)]. (* all 3 remaining cases involving an equality are resolved from the witness *)
         (* in the Less/Less case, x < y & y < x, leading (by trans_l) x < x, which violates reflexivity *)
-        (* but destruct doesn't seem to propagate the fact that `pcomp p x y = Less n` and `pcomp p y x = Less n0`, it only has n/n0 in the context *)
+        Check trans_l_instance (exist _ (conj n n0) _). (* Question: is it possible to prove the second hole here interactively? *)
     Admitted.
     (* Theorem to_trans (p : POSET') : forall x y z, leq (to p) x y = true /\ leq (to p) y z = true -> leq (to p) x z = true.  *)
 End POSET_ISOMORPHISMS.
