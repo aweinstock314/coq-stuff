@@ -34,7 +34,9 @@ Module POSET_ISOMORPHISMS.
             try [> intro H; destruct H; discriminate]; (* all 12 cases involving Greater/Uncomparable follow vacuously *)
             try [> intro; try exact e; exact (eq_sym e)]. (* all 3 remaining cases involving an equality are resolved from the witness *)
         (* in the Less/Less case, x < y & y < x, leading (by trans_l) x < x, which violates reflexivity *)
-        Check trans_l_instance (exist _ (conj n n0) _). (* Question: is it possible to prove the second hole here interactively? *)
+        Check trans_l_instance (exist _ (conj n n0) _). 
+        set (n1 := conj n n0). assert (H : Less n = Less (proj1 n1) /\ Less n0 = Less (proj2 n1)).
+        assert (L : Less n = Less (proj1 n1)). unfold n1. (* for some reason, the proj1/conj pair in `Less n = Less (proj1 (conj n n0))` doesn't reduce via simpl/compute *)
     Admitted.
     (* Theorem to_trans (p : POSET') : forall x y z, leq (to p) x y = true /\ leq (to p) y z = true -> leq (to p) x z = true.  *)
 End POSET_ISOMORPHISMS.
