@@ -9,6 +9,35 @@ Record POSET_PROOFS : Type := mkPosetProofs {
     trans : forall x y z, leq P x y = true /\ leq P y z = true -> leq P x z = true;
     }.
 
+Inductive Pord {A : Type} {x y : A}:=
+      Less : (x <> y) -> Pord
+    | Equal : (x = y) -> Pord
+    | Greater : (x <> y) -> Pord
+    | Uncomparable : (x <> y) -> Pord.
+
+Record POSET' : Type := mkPoset' {
+    t' : Type;
+    pcomp : forall (x y : t'), @ Pord t' x y;
+    trans_l : forall x y z, { n | pcomp x y = Less (proj1 n) /\ pcomp y z = Less (proj2 n) } -> { nxz | pcomp x z = Less nxz };
+    trans_g : forall x y z, { n | pcomp x y = Greater (proj1 n) /\ pcomp y z = Greater (proj2 n) } -> { nxz | pcomp x z = Greater nxz };
+    }.
+
+Module POSET_ISOMORPHISMS.
+    Definition to_leq (p : POSET') := fun x y => match pcomp p x y with Less _ => true | Equal _ => true | _ => false end.
+    Definition to (p : POSET') : POSET := {| t := t' p; leq := to_leq p |}.
+    Theorem to_refl (p : POSET') : forall x, leq (to p) x x = true.
+        intro x; simpl; unfold to_leq; destruct (pcomp p x x); try contradiction; reflexivity. Qed.
+    Theorem to_antisym (p : POSET') : forall x y, leq (to p) x y = true /\ leq (to p) y x = true -> x = y.
+        intros x y; simpl; unfold to_leq.
+        destruct (pcomp p x y), (pcomp p y x); (* 4*4 = 16 cases to handle *)
+            try [> intro H; destruct H; discriminate]; (* all 12 cases involving Greater/Uncomparable follow vacuously *)
+            try [> intro; try exact e; exact (eq_sym e)]. (* all 3 remaining cases involving an equality are resolved from the witness *)
+        (* in the Less/Less case, x < y & y < x, leading (by trans_l) x < x, which violates reflexivity *)
+        (* but destruct doesn't seem to propagate the fact that `pcomp p x y = Less n` and `pcomp p y x = Less n0`, it only has n/n0 in the context *)
+    Admitted.
+    (* Theorem to_trans (p : POSET') : forall x y z, leq (to p) x y = true /\ leq (to p) y z = true -> leq (to p) x z = true.  *)
+End POSET_ISOMORPHISMS.
+
 Record LATTICE : Type := mkLattice {
     L : POSET;
     top : t L;
@@ -187,7 +216,7 @@ Module FLAT_LATTICE_M.
     Theorem antisym : forall A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y x = true -> x = y.
         intros A dec_eq x y; destruct x as [| x |], y as [| y |]; compute; intro H; try reflexivity; match goal with
         | |- Elem _ = Elem _ => destruct dec_eq; [rewrite e; reflexivity | discriminate (proj1 H)] (* this case distilled to `dec_eq_minimal_repro.v` *)
-        | _ => try discriminate (proj1 H); discriminate (proj2 H)
+        | _ => destruct H; discriminate
         end.
     Qed.
     Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
