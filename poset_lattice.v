@@ -54,14 +54,17 @@ Module POSET_ISOMORPHISMS.
         end. Qed.
     Definition to' (p : POSET') : POSET_PROOFS := {| P := to p; refl := to_refl p; antisym := to_antisym p; trans := to_trans p |}.
 
-    (*Program Definition from_leq (p : POSET_PROOFS) : forall x y, @Pord (t (P p)) x y := fun x y =>
-        match (leq (P p) x y, leq (P p) y x) with
-            | (true, true) => Equal _
-            | (true, false) => Less _
-            | (false, true) => Greater _
-            | (false, false) => Uncomparable _
-        end.
-    Next Obligation. exact (antisym p x y (conj (eq_sym H0) (eq_sym H1))). Qed.*)
+    Theorem leq_false_neq (p : POSET_PROOFS) : forall x y, leq (P p) x y = false -> x <> y.
+        intros x y Hleq exy; rewrite exy, (refl p y) in Hleq; discriminate. Qed.
+    Definition neq_sym {A : Type} {x y : A} (n : x <> y) : (y <> x) := fun e => n (eq_sym e).
+    Definition from_leq (p : POSET_PROOFS) : forall x y, @Pord (t (P p)) x y := fun x y =>
+        let leqs := (leq (P p) x y, leq (P p) y x) in
+        match leqs as bools return (leqs = bools) -> Pord with
+            | (true, true) => fun e => Equal (antisym p x y (conj (f_equal fst e) (f_equal snd e)))
+            | (true, false) => fun e => Less (neq_sym (leq_false_neq p y x (f_equal snd e)))
+            | (false, true) => fun e => Greater (leq_false_neq p x y (f_equal fst e))
+            | (false, false) => fun e => Uncomparable (leq_false_neq p x y (f_equal fst e))
+        end eq_refl.
     (*Definition from : (p : POSET_PROOFS) : POSET' := *)
 End POSET_ISOMORPHISMS.
 
