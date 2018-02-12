@@ -50,6 +50,7 @@ Module POSET_ISOMORPHISMS.
             | e:_=_, H:pcomp _ _ _ = Less _ |- _ => subst; rewrite H; reflexivity
             | exy:x=y, eyz:y=z |- _ => rewrite (eq_trans exy eyz); destruct (orig_refl p z) as [x' e']; rewrite e'; reflexivity
         end. Qed.
+    Definition to' (p : POSET') : POSET_PROOFS := {| P := to p; refl := to_refl p; antisym := to_antisym p; trans := to_trans p |}.
 End POSET_ISOMORPHISMS.
 
 Record LATTICE : Type := mkLattice {
