@@ -9,7 +9,7 @@ Record POSET_PROOFS : Type := mkPosetProofs {
     trans : forall x y z, leq P x y = true /\ leq P y z = true -> leq P x z = true;
     }.
 
-Inductive Pord {A : Type} {x y : A}:=
+Inductive Pord {A : Type} {x y : A} :=
       Less : (x <> y) -> Pord
     | Equal : (x = y) -> Pord
     | Greater : (x <> y) -> Pord
@@ -19,12 +19,15 @@ Record POSET' : Type := mkPoset' {
     t' : Type;
     pcomp : forall (x y : t'), @ Pord t' x y;
     trans_l : forall x y z, { nxy | pcomp x y = Less nxy} -> {nyz | pcomp y z = Less nyz } -> { nxz | pcomp x z = Less nxz };
-    trans_g : forall x y z, { nxy | pcomp x y = Greater nxy} -> {nyz | pcomp y z = Greater nyz } -> { nxz | pcomp x z = Greater nxz };
+    (*trans_g : forall x y z, { nxy | pcomp x y = Greater nxy} -> {nyz | pcomp y z = Greater nyz } -> { nxz | pcomp x z = Greater nxz };*)
     }.
 
 Module POSET_ISOMORPHISMS.
     Definition to_leq (p : POSET') := fun x y => match pcomp p x y with Less _ => true | Equal _ => true | _ => false end.
     Definition to (p : POSET') : POSET := {| t := t' p; leq := to_leq p |}.
+
+    Theorem orig_refl (p : POSET') : forall x, {e : x = x | pcomp p x x = Equal e}.
+        intro x. destruct (pcomp p x x); try contradiction. exists e. reflexivity. Qed.
     Theorem to_refl (p : POSET') : forall x, leq (to p) x x = true.
         intro x; simpl; unfold to_leq; destruct (pcomp p x x); try contradiction; reflexivity. Qed.
     Theorem to_antisym (p : POSET') : forall x y, leq (to p) x y = true /\ leq (to p) y x = true -> x = y.
@@ -36,7 +39,33 @@ Module POSET_ISOMORPHISMS.
         (* in the Less/Less case, x < y & y < x, leading (by trans_l) x < x, which violates reflexivity *)
         destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl)); contradiction.
         Qed.
-    (* Theorem to_trans (p : POSET') : forall x y z, leq (to p) x y = true /\ leq (to p) y z = true -> leq (to p) x z = true.  *)
+    Theorem to_trans (p : POSET') : forall x y z, leq (to p) x y = true /\ leq (to p) y z = true -> leq (to p) x z = true.
+        intros x y z; simpl; unfold to_leq.
+        specialize (trans_l p x y z) as trans_l_instance.
+        (*specialize (to_antisym p x y) as as1; specialize (to_antisym p y z) as as2; specialize (to_antisym p x z) as as3.
+        simpl in as1, as2, as3; unfold to_leq in as1, as2, as3. revert as1 as2 as3.*)
+        set (cxy := pcomp p x y); set (cyz := pcomp p y z); set (cxz := pcomp p x z);
+        (*destruct (pcomp p x y), (pcomp p y z), (pcomp p x z);*)
+        destruct (pcomp p x y), (pcomp p y z) ;
+        (*destruct (pcomp p x y), (pcomp p y z), (pcomp p x z),
+                 (pcomp p y x), (pcomp p z y), (pcomp p z x);*)
+            try [> intros; destruct H; discriminate]; (* handle the 48 trivially vacuous cases *)
+            try [> intros; reflexivity]; (* handle the 8 remaining equality cases *)
+            try [> destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl)); discriminate ];
+            try match goal with | [exy:(x=y),eyz:(y=z),nxz:(x<>z) |- _ ] => destruct (nxz (eq_trans exy eyz)) end;
+            idtac;
+            (*set (t4:= conj eq_refl eq_refl : true = true /\ true = true);
+            destruct (pcomp p y x), (pcomp p z y), (pcomp p z x); intros;
+            try match goal with
+                | [as_:(true = true /\ true = true -> ?x = ?y), n:(?x <> ?y) |- _] => destruct (n (as_ t4))
+                (*| [e:(?x = ?y), n:(?x <> ?y) |- _] => destruct (n e)*)
+                | [e:(?x = ?y), nrev:(?y <> ?x) |- _ ] => destruct (nrev (eq_sym e))
+            end;*)
+            simpl.
+            Focus 1. (destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl))). (unfold cxz). (rewrite e). reflexivity.
+            Focus 3. (unfold cxz; rewrite (eq_trans e e0)).  (destruct (orig_refl p z)).  (rewrite e1).  reflexivity.
+            (* 2 more cases left *)
+            Admitted.
 End POSET_ISOMORPHISMS.
 
 Record LATTICE : Type := mkLattice {
