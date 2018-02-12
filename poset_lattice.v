@@ -19,7 +19,6 @@ Record POSET' : Type := mkPoset' {
     t' : Type;
     pcomp : forall (x y : t'), @ Pord t' x y;
     trans_l : forall x y z, { nxy | pcomp x y = Less nxy} -> {nyz | pcomp y z = Less nyz } -> { nxz | pcomp x z = Less nxz };
-    (*trans_g : forall x y z, { nxy | pcomp x y = Greater nxy} -> {nyz | pcomp y z = Greater nyz } -> { nxz | pcomp x z = Greater nxz };*)
     }.
 
 Module POSET_ISOMORPHISMS.
@@ -42,30 +41,18 @@ Module POSET_ISOMORPHISMS.
     Theorem to_trans (p : POSET') : forall x y z, leq (to p) x y = true /\ leq (to p) y z = true -> leq (to p) x z = true.
         intros x y z; simpl; unfold to_leq.
         specialize (trans_l p x y z) as trans_l_instance.
-        (*specialize (to_antisym p x y) as as1; specialize (to_antisym p y z) as as2; specialize (to_antisym p x z) as as3.
-        simpl in as1, as2, as3; unfold to_leq in as1, as2, as3. revert as1 as2 as3.*)
         set (cxy := pcomp p x y); set (cyz := pcomp p y z); set (cxz := pcomp p x z);
-        (*destruct (pcomp p x y), (pcomp p y z), (pcomp p x z);*)
-        destruct (pcomp p x y), (pcomp p y z) ;
-        (*destruct (pcomp p x y), (pcomp p y z), (pcomp p x z),
-                 (pcomp p y x), (pcomp p z y), (pcomp p z x);*)
+        destruct (pcomp p x y) eqn:Hxy, (pcomp p y z)eqn:Hyz;
             try [> intros; destruct H; discriminate]; (* handle the 48 trivially vacuous cases *)
             try [> intros; reflexivity]; (* handle the 8 remaining equality cases *)
             try [> destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl)); discriminate ];
             try match goal with | [exy:(x=y),eyz:(y=z),nxz:(x<>z) |- _ ] => destruct (nxz (eq_trans exy eyz)) end;
-            idtac;
-            (*set (t4:= conj eq_refl eq_refl : true = true /\ true = true);
-            destruct (pcomp p y x), (pcomp p z y), (pcomp p z x); intros;
-            try match goal with
-                | [as_:(true = true /\ true = true -> ?x = ?y), n:(?x <> ?y) |- _] => destruct (n (as_ t4))
-                (*| [e:(?x = ?y), n:(?x <> ?y) |- _] => destruct (n e)*)
-                | [e:(?x = ?y), nrev:(?y <> ?x) |- _ ] => destruct (nrev (eq_sym e))
-            end;*)
             simpl.
-            Focus 1. (destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl))). (unfold cxz). (rewrite e). reflexivity.
-            Focus 3. (unfold cxz; rewrite (eq_trans e e0)).  (destruct (orig_refl p z)).  (rewrite e1).  reflexivity.
-            (* 2 more cases left *)
-            Admitted.
+            - (destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl))). (unfold cxz). (rewrite e). reflexivity.
+            - (set (e' := eq_sym e)).  subst.  (unfold cxz).  (rewrite Hxy).  reflexivity.
+            - (unfold cxz).  subst x.  (rewrite Hyz).  reflexivity.
+            - (unfold cxz; rewrite (eq_trans e e0)).  (destruct (orig_refl p z)).  (rewrite e1).  reflexivity.
+        Qed.
 End POSET_ISOMORPHISMS.
 
 Record LATTICE : Type := mkLattice {
