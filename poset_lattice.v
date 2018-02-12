@@ -41,18 +41,15 @@ Module POSET_ISOMORPHISMS.
     Theorem to_trans (p : POSET') : forall x y z, leq (to p) x y = true /\ leq (to p) y z = true -> leq (to p) x z = true.
         intros x y z; simpl; unfold to_leq.
         specialize (trans_l p x y z) as trans_l_instance.
-        set (cxy := pcomp p x y); set (cyz := pcomp p y z); set (cxz := pcomp p x z);
         destruct (pcomp p x y) eqn:Hxy, (pcomp p y z)eqn:Hyz;
-            try [> intros; destruct H; discriminate]; (* handle the 48 trivially vacuous cases *)
-            try [> intros; reflexivity]; (* handle the 8 remaining equality cases *)
-            try [> destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl)); discriminate ];
-            try match goal with | [exy:(x=y),eyz:(y=z),nxz:(x<>z) |- _ ] => destruct (nxz (eq_trans exy eyz)) end;
-            simpl.
-            - (destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl))). (unfold cxz). (rewrite e). reflexivity.
-            - (set (e' := eq_sym e)).  subst.  (unfold cxz).  (rewrite Hxy).  reflexivity.
-            - (unfold cxz).  subst x.  (rewrite Hyz).  reflexivity.
-            - (unfold cxz; rewrite (eq_trans e e0)).  (destruct (orig_refl p z)).  (rewrite e1).  reflexivity.
-        Qed.
+            try [> intros; destruct H; discriminate]; (* handle the trivially vacuous cases *)
+            try [> intros; reflexivity]; (* handle the remaining equality cases *)
+            match goal with
+            | _:pcomp p x y = Less _, _:pcomp p y z = Less _ |- _ => destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl)); try discriminate; (rewrite e; reflexivity)
+            | exy:x=y, eyz:y=z, nxz:x<>z |- _  => destruct (nxz (eq_trans exy eyz))
+            | e:_=_, H:pcomp _ _ _ = Less _ |- _ => subst; rewrite H; reflexivity
+            | exy:x=y, eyz:y=z |- _ => rewrite (eq_trans exy eyz); destruct (orig_refl p z) as [x' e']; rewrite e'; reflexivity
+        end. Qed.
 End POSET_ISOMORPHISMS.
 
 Record LATTICE : Type := mkLattice {
