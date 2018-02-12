@@ -1,3 +1,5 @@
+Require Import Coq.Program.Tactics.
+
 Record POSET : Type := mkPoset {
     t : Type;
     leq : t -> t -> bool;
@@ -51,6 +53,16 @@ Module POSET_ISOMORPHISMS.
             | exy:x=y, eyz:y=z |- _ => rewrite (eq_trans exy eyz); destruct (orig_refl p z) as [x' e']; rewrite e'; reflexivity
         end. Qed.
     Definition to' (p : POSET') : POSET_PROOFS := {| P := to p; refl := to_refl p; antisym := to_antisym p; trans := to_trans p |}.
+
+    (*Program Definition from_leq (p : POSET_PROOFS) : forall x y, @Pord (t (P p)) x y := fun x y =>
+        match (leq (P p) x y, leq (P p) y x) with
+            | (true, true) => Equal _
+            | (true, false) => Less _
+            | (false, true) => Greater _
+            | (false, false) => Uncomparable _
+        end.
+    Next Obligation. exact (antisym p x y (conj (eq_sym H0) (eq_sym H1))). Qed.*)
+    (*Definition from : (p : POSET_PROOFS) : POSET' := *)
 End POSET_ISOMORPHISMS.
 
 Record LATTICE : Type := mkLattice {
@@ -203,7 +215,6 @@ Definition PRODUCT_LATTICE (L1 L2 : LATTICE) : LATTICE := {|
     glb := PRODUCT_LATTICE_M.glb L1 L2; lub := PRODUCT_LATTICE_M.lub L1 L2;
     |}.
 
-Require Import Coq.Program.Tactics.
 Program Definition PRODUCT_LATTICE_PROOFS (L1 L2 : LATTICE_PROOFS) : LATTICE_PROOFS := {|
     lat := PRODUCT_LATTICE (lat L1) (lat L2);
     pos := match (pos L1, pos L2) with (exist _ p1 e1, exist _ p2 e2) => exist _ (PRODUCT_POSET_PROOFS p1 p2) _ end;
