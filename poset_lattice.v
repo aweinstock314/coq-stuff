@@ -25,13 +25,13 @@ Record POSET' : Type := mkPoset' {
 
 Module POSET_ISOMORPHISMS.
     Definition to_leq (p : POSET') := fun x y => match pcomp p x y with Less _ => true | Equal _ => true | _ => false end.
-    Definition to (p : POSET') : POSET := {| t := t' p; leq := to_leq p |}.
+    Definition to' (p : POSET') : POSET := {| t := t' p; leq := to_leq p |}.
 
     Theorem orig_refl (p : POSET') : forall x, {e : x = x | pcomp p x x = Equal e}.
         intro x. destruct (pcomp p x x); try contradiction. exists e. reflexivity. Qed.
-    Theorem to_refl (p : POSET') : forall x, leq (to p) x x = true.
+    Theorem to_refl (p : POSET') : forall x, leq (to' p) x x = true.
         intro x; simpl; unfold to_leq; destruct (pcomp p x x); try contradiction; reflexivity. Qed.
-    Theorem to_antisym (p : POSET') : forall x y, leq (to p) x y = true /\ leq (to p) y x = true -> x = y.
+    Theorem to_antisym (p : POSET') : forall x y, leq (to' p) x y = true /\ leq (to' p) y x = true -> x = y.
         intros x y; simpl; unfold to_leq.
         specialize (trans_l p x y x) as trans_l_instance.
         destruct (pcomp p x y), (pcomp p y x); (* 4*4 = 16 cases to handle *)
@@ -40,7 +40,7 @@ Module POSET_ISOMORPHISMS.
         (* in the Less/Less case, x < y & y < x, leading (by trans_l) x < x, which violates reflexivity *)
         destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl)); contradiction.
         Qed.
-    Theorem to_trans (p : POSET') : forall x y z, leq (to p) x y = true /\ leq (to p) y z = true -> leq (to p) x z = true.
+    Theorem to_trans (p : POSET') : forall x y z, leq (to' p) x y = true /\ leq (to' p) y z = true -> leq (to' p) x z = true.
         intros x y z; simpl; unfold to_leq.
         specialize (trans_l p x y z) as trans_l_instance.
         destruct (pcomp p x y) eqn:Hxy, (pcomp p y z)eqn:Hyz;
@@ -52,22 +52,12 @@ Module POSET_ISOMORPHISMS.
             | e:_=_, H:pcomp _ _ _ = Less _ |- _ => subst; rewrite H; reflexivity
             | exy:x=y, eyz:y=z |- _ => rewrite (eq_trans exy eyz); destruct (orig_refl p z) as [x' e']; rewrite e'; reflexivity
         end. Qed.
-    Definition to' (p : POSET') : POSET_PROOFS := {| P := to p; refl := to_refl p; antisym := to_antisym p; trans := to_trans p |}.
+    Definition to (p : POSET') : POSET_PROOFS := {| P := to' p; refl := to_refl p; antisym := to_antisym p; trans := to_trans p |}.
 
     Theorem leq_false_neq (p : POSET_PROOFS) : forall x y, leq (P p) x y = false -> x <> y.
         intros x y Hleq exy; rewrite exy, (refl p y) in Hleq; discriminate. Qed.
     Definition neq_sym {A : Type} {x y : A} (n : x <> y) : (y <> x) := fun e => n (eq_sym e).
-    (*Definition from_leq (p : POSET_PROOFS) : forall x y, @Pord (t (P p)) x y := fun x y =>
-        let lxy := leq (P p) x y in let lyx := leq (P p) y x in
-        match lxy as bxy return (lxy = bxy) -> Pord with
-            | true => fun exy => match lyx as byx return (lyx = byx) -> Pord with
-                | true => fun eyx => Equal (antisym p x y (conj exy eyx))
-                | false => fun eyx => Less (neq_sym (leq_false_neq p y x eyx))
-            end eq_refl | false => fun exy => match lyx with
-                | true => Greater (leq_false_neq p x y exy)
-                | false => Uncomparable (leq_false_neq p x y exy)
-            end
-        end eq_refl.*)
+
     Definition or_intro1 {P Q R S : Prop} (x : P) : P \/ Q \/ R \/ S := ltac:(tauto).
     Definition or_intro2 {P Q R S : Prop} (x : Q) : P \/ Q \/ R \/ S := ltac:(tauto).
     Definition or_intro3 {P Q R S : Prop} (x : R) : P \/ Q \/ R \/ S := ltac:(tauto).
@@ -98,11 +88,27 @@ Module POSET_ISOMORPHISMS.
         - destruct H. destruct a. remember (f_equal fst H0). simpl in e. rewrite e in Hleq. discriminate Hleq.
         - destruct H. destruct a. remember (f_equal fst H0). simpl in e. rewrite e in Hleq. discriminate Hleq.
         Qed.
-    (*Theorem from_trans (p : POSET_PROOFS) : forall x y z, { nxy | from_leq p x y = Less nxy} -> {nyz | from_leq p y z = Less nyz } -> { nxz | from_leq p x z = Less nxz }.
+    Theorem from_trans (p : POSET_PROOFS) : forall x y z, { nxy | from_leq p x y = Less nxy } -> { nyz | from_leq p y z = Less nyz } -> { nxz | from_leq p x z = Less nxz }.
         intros x y z Hxy Hyz. destruct Hxy as [nxy lxy], Hyz as [nyz lyz].
-        specialize (trans p x y z) as tr.
-        destruct (leq (P p) x y) eqn:foo; destruct (leq (P p) y z) eqn:bar.*)
-    (*Definition from : (p : POSET_PROOFS) : POSET' := *)
+        remember (from_leq p x y) as rxy eqn:eqxy; remember (from_leq p y z) as ryz eqn:eqyz; remember (from_leq p x z) as rxz eqn:eqxz.
+        unfold from_leq in eqxy, eqyz, eqxz.
+        destruct (from_leq' p x y), (from_leq' p y z), (from_leq' p x z).
+        decompose [and or] (conj o (conj o0 o1)); match goal with
+        | n:(?x <> ?y), H:{_ : ?x = ?y | _} |- _ => destruct H as [e _]; destruct (n e)
+        | l:(?r = Less _), e:(?r = ?x), H:{ _ | ?x = (* Equal/Greater/Uncomparable *) _ /\ _} |- _ =>
+            destruct H as [a b]; rewrite e in l; rewrite (proj1 b) in l; discriminate l
+        | Hxy:{_|_ /\ (leq (P p) x y, _) = (true, _)}, Hyz:{_|_ /\ (leq (P p) y z, _) = (true, _)}, Hxz:{_|_ /\ (leq (P p) x z, _) = (false, _)} |- _ =>
+            destruct Hxy as [axy bxy]; destruct Hyz as [ayz byz]; destruct Hxz as [axz bxz];
+            discriminate (eq_stepl (trans p x y z (conj (f_equal fst (proj2 bxy)) (f_equal fst (proj2 byz)))) (f_equal fst (proj2 bxz)))
+        | Hxy:{_|_ /\ (leq (P p) x y, _) = (true, _)}, Hyz:{_|_ /\ (leq (P p) y z, _) = (true, _)}, Hxz:{_|_ /\ (_, leq (P p) z x) = (_, true)}, nxy:(x <> y) |- _ =>
+            destruct Hxy as [axy bxy]; destruct Hyz as [ayz byz]; destruct Hxz as [axz bxz];
+            set (leqyx := trans p y z x (conj (f_equal fst (proj2 byz)) (f_equal snd (proj2 bxz))));
+            set (exy := antisym p x y (conj (f_equal fst (proj2 bxy)) leqyx));
+            destruct (nxy (exy))
+        | H:{_|?x = Less _ /\ _}, e:(?r = ?x) |- {_|?r = Less _} => destruct H as [a b]; exists a; rewrite e, (proj1 b); reflexivity
+        end.
+        Qed.
+    Definition from (p : POSET_PROOFS) : POSET' := {| t' := t (P p); pcomp := from_leq p; trans_l := from_trans p |}.
 End POSET_ISOMORPHISMS.
 
 Record LATTICE : Type := mkLattice {
