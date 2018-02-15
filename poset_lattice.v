@@ -20,7 +20,7 @@ Inductive Pord {A : Type} {x y : A} :=
 Record POSET' : Type := mkPoset' {
     t' : Type;
     pcomp : forall (x y : t'), @ Pord t' x y;
-    trans_l : forall x y z, { nxy | pcomp x y = Less nxy} -> {nyz | pcomp y z = Less nyz } -> { nxz | pcomp x z = Less nxz };
+    trans_l : forall x y z, { nxy | pcomp x y = Less nxy } -> { nyz | pcomp y z = Less nyz } -> { nxz | pcomp x z = Less nxz };
     }.
 
 Module POSET_ISOMORPHISMS.
@@ -89,8 +89,15 @@ Module POSET_ISOMORPHISMS.
                 exist _ (Uncomparable n) (or_intro4 (exist _ n (conj eq_refl e)))
         end eq_refl.
     Definition from_leq (p : POSET_PROOFS) : forall x y, @Pord (t (P p)) x y := fun x y => match from_leq' p x y with exist _ ord _ => ord end.
-    (*Theorem leq_implies_from_leq (p : POSET_PROOFS) : forall x y, leq (P p) x y = true -> { n | from_leq p x y = Less n } \/ { e | from_leq p x y = Equal e }.
-        intros x y Hleq. set (result := from_leq p x y).*)
+    Theorem leq_implies_from_leq (p : POSET_PROOFS) : forall x y, leq (P p) x y = true -> { n | from_leq p x y = Less n } \/ { e | from_leq p x y = Equal e }.
+        intros x y Hleq. remember (from_leq p x y) as result eqn:foo1.
+        unfold from_leq in foo1.
+        destruct (from_leq' p x y) eqn:foo2; decompose [or] o.
+        - destruct H. right. exists x1. rewrite <- foo1 in a. exact (proj1 a).
+        - destruct H0. left. exists x1. rewrite <- foo1 in a. exact (proj1 a).
+        - destruct H. destruct a. remember (f_equal fst H0). simpl in e. rewrite e in Hleq. discriminate Hleq.
+        - destruct H. destruct a. remember (f_equal fst H0). simpl in e. rewrite e in Hleq. discriminate Hleq.
+        Qed.
     (*Theorem from_trans (p : POSET_PROOFS) : forall x y z, { nxy | from_leq p x y = Less nxy} -> {nyz | from_leq p y z = Less nyz } -> { nxz | from_leq p x z = Less nxz }.
         intros x y z Hxy Hyz. destruct Hxy as [nxy lxy], Hyz as [nyz lyz].
         specialize (trans p x y z) as tr.
