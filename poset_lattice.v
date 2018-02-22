@@ -271,48 +271,50 @@ Program Definition PRODUCT_LATTICE_PROOFS (L1 L2 : LATTICE_PROOFS) : LATTICE_PRO
 Next Obligation. rewrite e1; rewrite e2; reflexivity. Qed.
 
 Variant FLAT_LATTICE_T {A : Set} {dec_eq : forall x y : A, {x = y} + {x <> y}} : Set := Bot : FLAT_LATTICE_T | Elem : A -> FLAT_LATTICE_T | Top : FLAT_LATTICE_T.
-Module FLAT_LATTICE_M.
-    Definition flat_lattice_leq {A : Set} {dec_eq : forall x y : A, {x = y} + {x <> y}} (x y : FLAT_LATTICE_T (dec_eq := dec_eq) ) : bool := match (x, y) with
+Module FLAT_LATTICE_M. Section FLAT_LATTICE_M.
+    Variable A : Set.
+    Variable dec_eq : forall x y : A, {x = y} + {x <> y}.
+    Definition flat_lattice_leq (x y : FLAT_LATTICE_T (dec_eq := dec_eq) ) : bool := match (x, y) with
         | (Bot, _) => true
         | (_, Top) => true
         | (Elem x, Elem y) => sumbool_rec (fun _ => bool) (fun _ => true) (fun _ => false) (dec_eq x y)
         | _ => false
         end.
 
-    Theorem dec_eq_refl : forall (A : Type) (dec_eq : forall x y : A, {x = y} + {x <> y}) (x : A), {e : x = x | dec_eq x x = left e}.
-        intros A dec_eq x; destruct (dec_eq x x) as [l | r] ; [refine (@exist (x = x) _ l _) | contradict r]; reflexivity.
+    Theorem dec_eq_refl : forall (x : A), {e : x = x | dec_eq x x = left e}.
+        intros x; destruct (dec_eq x x) as [l | r] ; [refine (@exist (x = x) _ l _) | contradict r]; reflexivity.
     Qed.
-    Theorem refl : forall A dec_eq (x : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x x = true.
-        intros A dec_eq x; destruct x as [|x|]; simpl; [| specialize (dec_eq_refl A dec_eq x) as H; destruct H as [x0 H0]; compute; rewrite H0 |]; reflexivity.
+    Theorem refl : forall (x : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x x = true.
+        intros x; destruct x as [|x|]; simpl; [| specialize (dec_eq_refl x) as H; destruct H as [x0 H0]; compute; rewrite H0 |]; reflexivity.
     Qed.
-    Theorem antisym : forall A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y x = true -> x = y.
-        intros A dec_eq x y; destruct x as [| x |], y as [| y |]; compute; intro H; try reflexivity; match goal with
+    Theorem antisym : forall (x y : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y x = true -> x = y.
+        intros x y; destruct x as [| x |], y as [| y |]; compute; intro H; try reflexivity; match goal with
         | |- Elem _ = Elem _ => destruct dec_eq; [rewrite e; reflexivity | discriminate (proj1 H)] (* this case distilled to `dec_eq_minimal_repro.v` *)
         | _ => destruct H; discriminate
         end.
     Qed.
-    Theorem trans : forall A dec_eq (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> @ flat_lattice_leq A dec_eq x z = true.
-        intros A dec_eq x y z H. destruct H as [Hxy Hyz].
+    Theorem trans : forall (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> flat_lattice_leq x z = true.
+        intros x y z H. destruct H as [Hxy Hyz].
         destruct x, y, z; compute; try reflexivity; try discriminate.
         compute in Hxy, Hyz; destruct (dec_eq a a0), (dec_eq a0 a1), (dec_eq a a1); try reflexivity; try discriminate.
         rewrite <- e in e0; destruct (n e0).
     Qed.
 
-    Definition glb A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)) :=
+    Definition glb (x y : (@ FLAT_LATTICE_T A dec_eq)) :=
         match (x,y) with
         | (Bot, _) => Bot | (_, Bot) => Bot
         | (Elem x, Elem y) => sumbool_rec (fun _ => @ FLAT_LATTICE_T A dec_eq) (fun _ => Elem x) (fun _ => Bot) (dec_eq x y)
         | (Elem x, Top) => Elem x | (Top, Elem x) => Elem x
         | (Top, Top) => Top
         end.
-    Definition lub A dec_eq (x y : (@ FLAT_LATTICE_T A dec_eq)) :=
+    Definition lub (x y : (@ FLAT_LATTICE_T A dec_eq)) :=
         match (x,y) with
         | (Bot, Bot) => Bot
         | (Elem x, Bot) => Elem x | (Bot, Elem x) => Elem x
         | (Elem x, Elem y) => sumbool_rec (fun _ => @ FLAT_LATTICE_T A dec_eq) (fun _ => Elem x) (fun _ => Top) (dec_eq x y)
         | (Top, _) => Top | (_, Top) => Top
         end.
-End FLAT_LATTICE_M.
+End FLAT_LATTICE_M. End FLAT_LATTICE_M.
 
 Definition FLAT_LATTICE_POSET (A : Set) (dec_eq : forall x y : A, {x = y} + {x <> y}) : POSET := {|
     t := @ FLAT_LATTICE_T A dec_eq;
