@@ -63,30 +63,30 @@ Module POSET_ISOMORPHISMS.
     Definition or_intro3 {P Q R S : Prop} (x : R) : P \/ Q \/ R \/ S := ltac:(tauto).
     Definition or_intro4 {P Q R S : Prop} (x : S) : P \/ Q \/ R \/ S := ltac:(tauto).
     Definition from_leq' (p : POSET_PROOFS) : forall x y, { r : @Pord (t (P p)) x y |
-        {e : x = y | r = Equal e /\ (leq (P p) x y, leq (P p) y x) = (true, true)} \/
-        {n : x <> y | r = Less n /\ (leq (P p) x y, leq (P p) y x) = (true, false)} \/
-        {n : x <> y | r = Greater n /\ (leq (P p) x y, leq (P p) y x) = (false, true)} \/
-        {n : x <> y | r = Uncomparable n /\ (leq (P p) x y, leq (P p) y x) = (false, false)}} :=
+        (exists e : x = y, r = Equal e /\ (leq (P p) x y, leq (P p) y x) = (true, true)) \/
+        (exists n : x <> y, r = Less n /\ (leq (P p) x y, leq (P p) y x) = (true, false)) \/
+        (exists n : x <> y, r = Greater n /\ (leq (P p) x y, leq (P p) y x) = (false, true)) \/
+        (exists n : x <> y,  r = Uncomparable n /\ (leq (P p) x y, leq (P p) y x) = (false, false))} :=
         fun x y => let leqs := (leq (P p) x y, leq (P p) y x) in
         match leqs as bools return (leqs = bools) -> _ with
             | (true, true) => fun e => let e' := (antisym p x y (conj (f_equal fst e) (f_equal snd e))) in
-                exist _ (Equal e') (or_intro1 (exist _ e' (conj eq_refl e)))
+                exist _ (Equal e') (or_intro1 (ex_intro _ e' (conj eq_refl e)))
             | (true, false) => fun e => let n := (neq_sym (leq_false_neq p y x (f_equal snd e))) in
-                exist _ (Less n) (or_intro2 (exist _ n (conj eq_refl e)))
+                exist _ (Less n) (or_intro2 (ex_intro _ n (conj eq_refl e)))
             | (false, true) => fun e => let n := (leq_false_neq p x y (f_equal fst e)) in
-                exist _ (Greater n) (or_intro3 (exist _ n (conj eq_refl e)))
+                exist _ (Greater n) (or_intro3 (ex_intro _ n (conj eq_refl e)))
             | (false, false) => fun e => let n := (leq_false_neq p x y (f_equal fst e)) in
-                exist _ (Uncomparable n) (or_intro4 (exist _ n (conj eq_refl e)))
+                exist _ (Uncomparable n) (or_intro4 (ex_intro _ n (conj eq_refl e)))
         end eq_refl.
     Definition from_leq (p : POSET_PROOFS) : forall x y, @Pord (t (P p)) x y := fun x y => match from_leq' p x y with exist _ ord _ => ord end.
     Theorem leq_implies_from_leq (p : POSET_PROOFS) : forall x y, leq (P p) x y = true -> { n | from_leq p x y = Less n } \/ { e | from_leq p x y = Equal e }.
         intros x y Hleq. remember (from_leq p x y) as result eqn:foo1.
         unfold from_leq in foo1.
         destruct (from_leq' p x y) eqn:foo2; decompose [or] o.
-        - destruct H. right. exists x1. rewrite <- foo1 in a. exact (proj1 a).
-        - destruct H0. left. exists x1. rewrite <- foo1 in a. exact (proj1 a).
-        - destruct H. destruct a. remember (f_equal fst H0). simpl in e. rewrite e in Hleq. discriminate Hleq.
-        - destruct H. destruct a. remember (f_equal fst H0). simpl in e. rewrite e in Hleq. discriminate Hleq.
+        - destruct H as [x1 a]. right. exists x1. rewrite <- foo1 in a. exact (proj1 a).
+        - destruct H0 as [x1 a]. left. exists x1. rewrite <- foo1 in a. exact (proj1 a).
+        - destruct H as [x1 a]. destruct a. remember (f_equal fst H0). simpl in e. rewrite e in Hleq. discriminate Hleq.
+        - destruct H as [x1 a]. destruct a. remember (f_equal fst H0). simpl in e. rewrite e in Hleq. discriminate Hleq.
         Qed.
     Theorem from_trans (p : POSET_PROOFS) : forall x y z, { nxy | from_leq p x y = Less nxy } -> { nyz | from_leq p y z = Less nyz } -> { nxz | from_leq p x z = Less nxz }.
         intros x y z Hxy Hyz. destruct Hxy as [nxy lxy], Hyz as [nyz lyz].
@@ -94,18 +94,18 @@ Module POSET_ISOMORPHISMS.
         unfold from_leq in eqxy, eqyz, eqxz.
         destruct (from_leq' p x y), (from_leq' p y z), (from_leq' p x z).
         decompose [and or] (conj o (conj o0 o1)); match goal with
-        | n:(?x <> ?y), H:{_ : ?x = ?y | _} |- _ => destruct H as [e _]; destruct (n e)
-        | l:(?r = Less _), e:(?r = ?x), H:{ _ | ?x = (* Equal/Greater/Uncomparable *) _ /\ _} |- _ =>
+        | n:(?x <> ?y), H:(exists _ : ?x = ?y, _) |- _ => destruct H as [e _]; destruct (n e)
+        | l:(?r = Less _), e:(?r = ?x), H:(exists _, ?x = (* Equal/Greater/Uncomparable *) _ /\ _) |- _ =>
             destruct H as [a b]; rewrite e in l; rewrite (proj1 b) in l; discriminate l
-        | Hxy:{_|_ /\ (leq (P p) x y, _) = (true, _)}, Hyz:{_|_ /\ (leq (P p) y z, _) = (true, _)}, Hxz:{_|_ /\ (leq (P p) x z, _) = (false, _)} |- _ =>
+        | Hxy:(exists _,_ /\ (leq (P p) x y, _) = (true, _)), Hyz:(exists _,_ /\ (leq (P p) y z, _) = (true, _)), Hxz:(exists _,_ /\ (leq (P p) x z, _) = (false, _)) |- _ =>
             destruct Hxy as [axy bxy]; destruct Hyz as [ayz byz]; destruct Hxz as [axz bxz];
             discriminate (eq_stepl (trans p x y z (conj (f_equal fst (proj2 bxy)) (f_equal fst (proj2 byz)))) (f_equal fst (proj2 bxz)))
-        | Hxy:{_|_ /\ (leq (P p) x y, _) = (true, _)}, Hyz:{_|_ /\ (leq (P p) y z, _) = (true, _)}, Hxz:{_|_ /\ (_, leq (P p) z x) = (_, true)}, nxy:(x <> y) |- _ =>
+        | Hxy:(exists _,_ /\ (leq (P p) x y, _) = (true, _)), Hyz:(exists _,_ /\ (leq (P p) y z, _) = (true, _)), Hxz:(exists _,_ /\ (_, leq (P p) z x) = (_, true)), nxy:(x <> y) |- _ =>
             destruct Hxy as [axy bxy]; destruct Hyz as [ayz byz]; destruct Hxz as [axz bxz];
             set (leqyx := trans p y z x (conj (f_equal fst (proj2 byz)) (f_equal snd (proj2 bxz))));
             set (exy := antisym p x y (conj (f_equal fst (proj2 bxy)) leqyx));
             destruct (nxy (exy))
-        | H:{_|?x = Less _ /\ _}, e:(?r = ?x) |- {_|?r = Less _} => destruct H as [a b]; exists a; rewrite e, (proj1 b); reflexivity
+        | H:(exists _,?x = Less _ /\ _), e:(?r = ?x) |- {_|?r = Less _} => destruct H as [a b]; exists a; rewrite e, (proj1 b); reflexivity
         end.
         Qed.
     Definition from (p : POSET_PROOFS) : POSET' := {| t' := t (P p); pcomp := from_leq p; trans_l := from_trans p |}.
