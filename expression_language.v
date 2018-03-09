@@ -26,6 +26,11 @@ Fixpoint compile e := match e with
     | BinopE f e1 e2 => append (append (compile e2) (compile e1)) (singleton (BinopS f))
     end.
 
+Fixpoint bad_compile e := match e with
+    | ConstE n => singleton (PushS n)
+    | BinopE f e1 e2 => append (append (bad_compile e1) (bad_compile e2)) (singleton (BinopS f))
+    end.
+
 (*Eval cbn in compile (BinopE mult (BinopE plus (ConstE 2) (ConstE 3)) (ConstE 4)) nil.*)
 
 Fixpoint evalStackM (prog : list StackOp) (stack : list nat) := (match prog with
@@ -45,3 +50,14 @@ Theorem compile_correct : forall e p s, evalStackM ((compile e) p) s = evalStack
     - reflexivity.
     - cbn. unfold append. rewrite IHe2, IHe1. reflexivity.
     Qed.
+
+Theorem bad_compile_correct : forall e p s, evalStackM ((bad_compile e) p) s = evalStackM p (evalExp e :: s)%list.
+    intros e. induction e; intros p s.
+    - reflexivity.
+    - cbn. unfold append. rewrite IHe1, IHe2. cbn.
+(* At this point, the goal is:
+evalStackM p (n (evalExp e2) (evalExp e1) :: s) =
+evalStackM p (n (evalExp e1) (evalExp e2) :: s)
+which demonstrates that bad_compile is unprovable without assuming n's commutativity
+*)
+    Show. Abort. 
