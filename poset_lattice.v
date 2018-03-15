@@ -111,6 +111,14 @@ Module POSET_ISOMORPHISMS.
     Definition from (p : POSET_PROOFS) : POSET' := {| t' := t (P p); pcomp := from_leq p; trans_l := from_trans p |}.
 End POSET_ISOMORPHISMS.
 
+Definition GaloisConnection (C A : POSET_PROOFS) (abs : t (P C) -> t (P A)) (conc : t (P A) -> t (P C)) : Prop :=
+    forall (a : t (P A)) (c : t (P C)), leq _ c (conc a) = true <-> leq _ (abs c) a = true.
+
+Theorem galois_composition : forall A B C a1 c1 a2 c2, GaloisConnection A B a1 c1 -> GaloisConnection B C a2 c2 -> GaloisConnection A C (fun a => a2 (a1 a)) (fun c => c1 (c2 c)).
+    intros A B C a1 c1 a2 c2 gcab gcbc c a.
+    exact (iff_trans (gcab (c2 c) a) (gcbc c (a1 a))).
+    Qed.
+
 Record LATTICE : Type := mkLattice {
     L : POSET;
     top : t L;
