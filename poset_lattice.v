@@ -119,6 +119,19 @@ Theorem galois_composition : forall A B C a1 c1 a2 c2, GaloisConnection A B a1 c
     exact (iff_trans (gcab (c2 c) a) (gcbc c (a1 a))).
     Qed.
 
+Definition Monotone {p q : POSET_PROOFS} (f : t (P p) -> t (P q)) : Prop := forall x y, leq _ x y = true -> leq _ (f x) (f y) = true.
+
+Theorem galois_contractive {A C : POSET_PROOFS} abs conc (gc : GaloisConnection C A abs conc) a : leq _ (abs (conc a)) a = true.
+    exact (proj1 (gc _ _) (refl C (conc a))). Qed.
+Theorem galois_expansive {A C : POSET_PROOFS} abs conc (gc : GaloisConnection C A abs conc) c : leq _ c (conc (abs c)) = true.
+    exact (proj2 (gc _ _) (refl A (abs c))). Qed.
+
+Theorem galois_monotone : forall A C abs conc, GaloisConnection C A conc abs -> Monotone abs /\ Monotone conc.
+    split; intros x y Hleq.
+    - exact (proj2 (H y (abs x)) (trans _ _ _ _ (conj (galois_contractive _ _ H x) Hleq))).
+    - exact (proj1 (H (conc y) x) (trans _ _ _ _ (conj Hleq (galois_expansive conc abs H y)))).
+    Qed.
+
 Record LATTICE : Type := mkLattice {
     L : POSET;
     top : t L;
