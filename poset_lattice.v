@@ -7,8 +7,8 @@ Record POSET : Type := mkPoset {
 Record POSET_PROOFS : Type := mkPosetProofs {
     P : POSET;
     refl : forall x, leq P x x = true;
-    antisym : forall x y, leq P x y = true /\ leq P y x = true -> x = y;
-    trans : forall x y z, leq P x y = true /\ leq P y z = true -> leq P x z = true;
+    antisym : forall x y, leq P x y = true -> leq P y x = true -> x = y;
+    trans : forall x y z, leq P x y = true -> leq P y z = true -> leq P x z = true;
     }.
 
 Inductive Pord {A : Type} {x y : A} :=
@@ -31,20 +31,20 @@ Module POSET_ISOMORPHISMS.
         intro x. destruct (pcomp p x x); try contradiction. exists e. reflexivity. Qed.
     Theorem to_refl (p : POSET') : forall x, leq (to' p) x x = true.
         intro x; simpl; unfold to_leq; destruct (pcomp p x x); try contradiction; reflexivity. Qed.
-    Theorem to_antisym (p : POSET') : forall x y, leq (to' p) x y = true /\ leq (to' p) y x = true -> x = y.
+    Theorem to_antisym (p : POSET') : forall x y, leq (to' p) x y = true -> leq (to' p) y x = true -> x = y.
         intros x y; simpl; unfold to_leq.
         specialize (trans_l p x y x) as trans_l_instance.
         destruct (pcomp p x y), (pcomp p y x); (* 4*4 = 16 cases to handle *)
-            try [> intro H; destruct H; discriminate]; (* all 12 cases involving Greater/Uncomparable follow vacuously *)
-            try [> intro; try exact e; exact (eq_sym e)]. (* all 3 remaining cases involving an equality are resolved from the witness *)
+            try [> intros H H'; discriminate]; (* all 12 cases involving Greater/Uncomparable follow vacuously *)
+            try [> intros; try exact e; exact (eq_sym e)]. (* all 3 remaining cases involving an equality are resolved from the witness *)
         (* in the Less/Less case, x < y & y < x, leading (by trans_l) x < x, which violates reflexivity *)
         destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl)); contradiction.
         Qed.
-    Theorem to_trans (p : POSET') : forall x y z, leq (to' p) x y = true /\ leq (to' p) y z = true -> leq (to' p) x z = true.
+    Theorem to_trans (p : POSET') : forall x y z, leq (to' p) x y = true -> leq (to' p) y z = true -> leq (to' p) x z = true.
         intros x y z; simpl; unfold to_leq.
         specialize (trans_l p x y z) as trans_l_instance.
         destruct (pcomp p x y) eqn:Hxy, (pcomp p y z)eqn:Hyz;
-            try [> intros; destruct H; discriminate]; (* handle the trivially vacuous cases *)
+            try [> intros; discriminate]; (* handle the trivially vacuous cases *)
             try [> intros; reflexivity]; (* handle the remaining equality cases *)
             match goal with
             | _:pcomp p x y = Less _, _:pcomp p y z = Less _ |- _ => destruct (trans_l_instance (exist _ n eq_refl) (exist _ n0 eq_refl)); try discriminate; (rewrite e; reflexivity)
@@ -69,7 +69,7 @@ Module POSET_ISOMORPHISMS.
         (exists n : x <> y,  r = Uncomparable n /\ (leq (P p) x y, leq (P p) y x) = (false, false))} :=
         fun x y => let leqs := (leq (P p) x y, leq (P p) y x) in
         match leqs as bools return (leqs = bools) -> _ with
-            | (true, true) => fun e => let e' := (antisym p x y (conj (f_equal fst e) (f_equal snd e))) in
+            | (true, true) => fun e => let e' := (antisym p x y (f_equal fst e) (f_equal snd e)) in
                 exist _ (Equal e') (or_intro1 (ex_intro _ e' (conj eq_refl e)))
             | (true, false) => fun e => let n := (neq_sym (leq_false_neq p y x (f_equal snd e))) in
                 exist _ (Less n) (or_intro2 (ex_intro _ n (conj eq_refl e)))
@@ -99,11 +99,11 @@ Module POSET_ISOMORPHISMS.
             destruct H as [a b]; rewrite e in l; rewrite (proj1 b) in l; discriminate l
         | Hxy:(exists _,_ /\ (leq (P p) x y, _) = (true, _)), Hyz:(exists _,_ /\ (leq (P p) y z, _) = (true, _)), Hxz:(exists _,_ /\ (leq (P p) x z, _) = (false, _)) |- _ =>
             destruct Hxy as [axy bxy]; destruct Hyz as [ayz byz]; destruct Hxz as [axz bxz];
-            discriminate (eq_stepl (trans p x y z (conj (f_equal fst (proj2 bxy)) (f_equal fst (proj2 byz)))) (f_equal fst (proj2 bxz)))
+            discriminate (eq_stepl (trans p x y z (f_equal fst (proj2 bxy)) (f_equal fst (proj2 byz))) (f_equal fst (proj2 bxz)))
         | Hxy:(exists _,_ /\ (leq (P p) x y, _) = (true, _)), Hyz:(exists _,_ /\ (leq (P p) y z, _) = (true, _)), Hxz:(exists _,_ /\ (_, leq (P p) z x) = (_, true)), nxy:(x <> y) |- _ =>
             destruct Hxy as [axy bxy]; destruct Hyz as [ayz byz]; destruct Hxz as [axz bxz];
-            set (leqyx := trans p y z x (conj (f_equal fst (proj2 byz)) (f_equal snd (proj2 bxz))));
-            set (exy := antisym p x y (conj (f_equal fst (proj2 bxy)) leqyx));
+            set (leqyx := trans p y z x (f_equal fst (proj2 byz)) (f_equal snd (proj2 bxz)));
+            set (exy := antisym p x y (f_equal fst (proj2 bxy)) leqyx);
             destruct (nxy (exy))
         | H:(exists _,?x = Less _ /\ _), e:(?r = ?x) |- {_|?r = Less _} => destruct H as [a b]; exists a; rewrite e, (proj1 b); reflexivity
         end.
@@ -128,8 +128,8 @@ Theorem galois_expansive {A C : POSET_PROOFS} abs conc (gc : GaloisConnection C 
 
 Theorem galois_monotone : forall A C abs conc, GaloisConnection C A conc abs -> Monotone abs /\ Monotone conc.
     split; intros x y Hleq.
-    - exact (proj2 (H y (abs x)) (trans _ _ _ _ (conj (galois_contractive _ _ H x) Hleq))).
-    - exact (proj1 (H (conc y) x) (trans _ _ _ _ (conj Hleq (galois_expansive conc abs H y)))).
+    - exact (proj2 (H y (abs x)) (trans _ _ _ _ (galois_contractive _ _ H x) Hleq)).
+    - exact (proj1 (H (conc y) x) (trans _ _ _ _ Hleq (galois_expansive conc abs H y))).
     Qed.
 
 Record LATTICE : Type := mkLattice {
@@ -192,24 +192,23 @@ Module PRODUCT_POSET_M.
     Theorem refl (P1 P2 : POSET_PROOFS) : forall x, product_leq (P P1) (P P2) x x = true.
         intros **.  (destruct x).  (compute).  (rewrite (refl P1)).  (rewrite (refl P2)).  reflexivity.
     Qed.
-    Theorem antisym (P1 P2 : POSET_PROOFS) : forall x y, product_leq (P P1) (P P2) x y = true /\ product_leq (P P1) (P P2) y x = true -> x = y.
-        intros; destruct x,y.
-        cut (t0=t2 /\ t1=t3). intro H0; destruct H0; rewrite H0; rewrite H1; reflexivity.
-        specialize (antisym P1 t0 t2). specialize (antisym P2 t1 t3). intros.
-        (destruct H). (apply (lift_leq (P P1) (P P2)) in H; simpl in H). (apply (lift_leq (P P1) (P P2)) in H2; simpl in H2).
-        tauto.
+    Theorem antisym (P1 P2 : POSET_PROOFS) : forall x y, product_leq (P P1) (P P2) x y = true -> product_leq (P P1) (P P2) y x = true -> x = y.
+        intros x y Hxy Hyx.
+        destruct (lift_leq _ _ x y Hxy) as [Hxy1 Hxy2], (lift_leq _ _ y x Hyx) as [Hyx1 Hyx2].
+        destruct x as [x1 x2], y as [y1 y2]. simpl in *.
+        rewrite (antisym _ _ _ Hxy1 Hyx1), (antisym _ _ _ Hxy2 Hyx2).
+        reflexivity.
     Qed.
 
-    Theorem trans (P1 P2 : POSET_PROOFS) : forall x y z, product_leq (P P1) (P P2) x y = true /\ product_leq (P P1) (P P2) y z = true -> product_leq (P P1) (P P2) x z = true.
+    Theorem trans (P1 P2 : POSET_PROOFS) : forall x y z, product_leq (P P1) (P P2) x y = true -> product_leq (P P1) (P P2) y z = true -> product_leq (P P1) (P P2) x z = true.
         intros **. (destruct x, y, z).
         specialize (trans P1 t0 t2 t4). specialize (trans P2 t1 t3 t5). intros **.
-        destruct H.
         unfold product_leq; simpl.
-        (apply lift_leq in H). (apply lift_leq in H2).
-        (simpl in H, H2). (destruct H, H2).
-        (rewrite H, H2 in H1). (rewrite H3, H4 in H0).
-        (destruct H0). tauto. (destruct H1). tauto.
-        (destruct (leq (P P1) t0 t4); tauto).
+        (apply lift_leq in H). (apply lift_leq in H0).
+        (simpl in H, H0). (destruct H, H0).
+        (rewrite H, H0 in H2). (rewrite H3, H4 in H1).
+        (destruct H2, H1); try tauto.
+        match goal with |- (?b && ?b)%bool = ?b => destruct b; tauto end.
     Qed.
 End PRODUCT_POSET_M.
 
@@ -308,14 +307,14 @@ Module FLAT_LATTICE_M. Section FLAT_LATTICE_M.
     Theorem refl : forall (x : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x x = true.
         intros x; destruct x as [|x|]; simpl; [| specialize (dec_eq_refl x) as H; destruct H as [x0 H0]; compute; rewrite H0 |]; reflexivity.
     Qed.
-    Theorem antisym : forall (x y : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y x = true -> x = y.
-        intros x y; destruct x as [| x |], y as [| y |]; compute; intro H; try reflexivity; match goal with
-        | |- Elem _ = Elem _ => destruct dec_eq; [rewrite e; reflexivity | discriminate (proj1 H)] (* this case distilled to `dec_eq_minimal_repro.v` *)
-        | _ => destruct H; discriminate
+    Theorem antisym : forall (x y : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true -> flat_lattice_leq y x = true -> x = y.
+        intros x y; destruct x as [| x |], y as [| y |]; compute; intros H H0; try reflexivity; match goal with
+        | |- Elem _ = Elem _ => destruct dec_eq; [rewrite e; reflexivity | discriminate] (* this case distilled to `dec_eq_minimal_repro.v` *)
+        | _ => discriminate
         end.
     Qed.
-    Theorem trans : forall (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true /\ flat_lattice_leq y z = true -> flat_lattice_leq x z = true.
-        intros x y z H. destruct H as [Hxy Hyz].
+    Theorem trans : forall (x y z : (@ FLAT_LATTICE_T A dec_eq)), flat_lattice_leq x y = true -> flat_lattice_leq y z = true -> flat_lattice_leq x z = true.
+        intros x y z Hxy Hyz.
         destruct x, y, z; compute; try reflexivity; try discriminate.
         compute in Hxy, Hyz; destruct (dec_eq a a0), (dec_eq a0 a1), (dec_eq a a1); try reflexivity; try discriminate.
         rewrite <- e in e0; destruct (n e0).
