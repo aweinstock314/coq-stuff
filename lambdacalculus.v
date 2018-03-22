@@ -3,8 +3,6 @@ Extraction Language Haskell.
 Require Export String.
 Require Export MSets.
 
-Print OrderedType.OrderedType.
-
 Module ListOrderedType(O1 : OrderedType) <: OrderedType.
     Module MO := OrderedTypeFacts(O1).
 
@@ -86,12 +84,38 @@ Module ListOrderedType(O1 : OrderedType) <: OrderedType.
         destruct (O1.eq_dec a t0), (IHx y); tauto.
     Qed.
 
-(*
-  Definition eq_equiv : True := I.
+    Definition eq_equiv : Equivalence eq := {|
+        Equivalence_Reflexive := eq_refl;
+        Equivalence_Symmetric := eq_sym;
+        Equivalence_Transitive := eq_trans;
+        |}.
 
- (*Definition lt x y :=
-    O1.lt (fst x) (fst y) \/
-    (O1.eq (fst x) (fst y) /\ O2.lt (snd x) (snd y)).*)
+    Fixpoint lt x y := match x with
+    | nil => True
+    | cons b bs => match y with
+        | nil => False
+        | cons c cs => O1.lt b c \/ (O1.eq b c /\ lt bs cs)
+        end
+    end.
+
+    Lemma lt_not_refl : forall x, ~(lt x x).
+        Admitted.
+    Lemma lt_trans : forall x y z, lt x y -> lt y z -> lt x z.
+        Admitted.
+    Definition lt_strorder : StrictOrder lt := {|
+        StrictOrder_Irreflexive := lt_not_refl;
+        StrictOrder_Transitive := lt_trans;
+        |}.
+
+    Lemma lt_compat : Proper (eq ==> eq ==> iff) lt.
+        Admitted.
+
+    Definition compare (x y : t) : comparison.
+        Admitted.
+
+    Definition compare_spec (x y : t) : CompareSpec (eq x y) (lt x y) (lt y x) (compare x y).
+        Admitted.
+
 End ListOrderedType.
 
 CoInductive Stream (A : Set) : Set := Seq : A -> Stream A -> Stream A.
@@ -111,4 +135,3 @@ Eval compute in question2point2expression.
 (*Definition replaceVar' (x : Name) (e : Expr) (freshNames : Stream Name) (E : Expr) : (Stream Name, Expr) :=*)
 
 (*Definition replaceVar : (Name, Expr) -> (Stream Name, Expr) -> (Stream Name, Expr) :=*)
-*)
