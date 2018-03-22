@@ -91,7 +91,10 @@ Module ListOrderedType(O1 : OrderedType) <: OrderedType.
         |}.
 
     Fixpoint lt x y := match x with
-    | nil => True
+    | nil => match y with
+        | nil => False
+        | cons _ _ => True
+        end
     | cons b bs => match y with
         | nil => False
         | cons c cs => O1.lt b c \/ (O1.eq b c /\ lt bs cs)
@@ -99,9 +102,22 @@ Module ListOrderedType(O1 : OrderedType) <: OrderedType.
     end.
 
     Lemma lt_not_refl : forall x, ~(lt x x).
-        Admitted.
+        induction x.
+        - exact (fun x => x).
+        - destruct 1.
+            + (exfalso; exact ((@StrictOrder_Irreflexive O1.t O1.lt O1.lt_strorder) a H)).
+            + exact (IHx (proj2 H)).
+        Qed.
     Lemma lt_trans : forall x y z, lt x y -> lt y z -> lt x z.
-        Admitted.
+        induction x as [|b bs], y as [|c cs], z as [|d ds]; simpl in *; try tauto.
+        intros. destruct H as [|[Hbc Tbc]], H0 as [|[Hcd Tcd]].
+        - left. apply (StrictOrder_Transitive b c d); assumption.
+        - left. rewrite <- Hcd. assumption.
+        - left. rewrite Hbc. assumption.
+        - right. split.
+            + apply (Equivalence_Transitive b c d); tauto.
+            + exact (IHbs cs ds Tbc Tcd).
+        Qed.
     Definition lt_strorder : StrictOrder lt := {|
         StrictOrder_Irreflexive := lt_not_refl;
         StrictOrder_Transitive := lt_trans;
