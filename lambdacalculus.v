@@ -53,28 +53,39 @@ Module ListOrderedType(O1 : OrderedType) <: OrderedType.
         + exact (proj2 (eq_sym' _ _ _ _ e)).
     Qed.
 
+    Lemma eq_trans' : forall bs cs ds b c d, eq (b :: bs) (c :: cs) -> eq (c :: cs) (d :: ds) -> eq (b :: bs) (d :: ds).
+        induction bs as [|x xs], cs as [|y ys], ds as [|z zs]; intros b c d ebc ecd; split; simpl in *; match goal with
+        | |- True => exact I
+        | H : (_ /\ False) |- _ => destruct (proj2 H)
+        | |- eq nil nil => reflexivity
+        | H : (O1.eq b c /\ _), H' : (O1.eq c d /\ _) |- O1.eq b d => exact (Equivalence_Transitive b c d (proj1 H) (proj1 H'))
+        | _ => exact (IHxs ys zs x y z (proj2 ebc) (proj2 ecd))
+        end. Qed.
+
     Lemma eq_trans : forall x y z : t, eq x y -> eq y z -> eq x z.
-        intros x y z exy eyz. induction x,y,z; match goal with
+        intros x y z exy eyz. induction x as [|b bs],y as [|c cs],z as [|d ds]; match goal with
         | |- eq nil nil => reflexivity
         | H : eq nil (cons _ _) |- _ => inversion H
         | H : eq (cons _ _) nil |- _ => inversion H
-        | _ => idtac
-        end.
-        split.
-        - exact (Equivalence_Transitive a t0 t1 (proj1 exy) (proj1 eyz)).
-        - simpl in *.
+        | _ => exact (eq_trans' _ _ _ _ _ _ exy eyz)
+        end. Qed.
 
     (*Definition eq_dec : forall x y : t, {eq x y} + {~ eq x y}.
         intros x y.
-        induction x as [|b bs]; induction y as [|c cs].
+        destruct x as [|b bs]; [|revert b bs]; induction y as [|c cs]; try intros b bs.
         - left. reflexivity.
         - right. intro H. inversion H.
         - right. intro H. inversion H.
         - destruct (O1.eq_dec b c).
-            + destruct IHbs.
-            * right. intro H.
-            (*+ right. intro H. exact (n (proj1 H)).*)
-    *)
+            + destruct (IHcs b bs).
+            * right. intro H. destruct (cons_neq _ _ (eq_trans _ _ _ (eq_sym _ _ e0) H)).
+            * 
+            (*+ right. intro H. exact (n (proj1 H)).*) *)
+    Definition eq_dec : forall x y, {eq x y} + {~ eq x y}.
+        induction x; intros **; destruct y; simpl in *; auto.
+        destruct (O1.eq_dec a t0), (IHx y); tauto.
+    Qed.
+
 (*
   Definition eq_equiv : True := I.
 
