@@ -89,6 +89,11 @@ Module ListOrderedType(O1 : OrderedType) <: OrderedType.
         Equivalence_Symmetric := eq_sym;
         Equivalence_Transitive := eq_trans;
         |}.
+    Add Relation t ListOrderedType.eq
+        reflexivity proved by eq_refl
+        symmetry proved by eq_sym
+        transitivity proved by ListOrderedType.eq_trans
+        as rel_eq.
 
     Fixpoint lt x y := match x with
     | nil => match y with
@@ -124,6 +129,10 @@ Module ListOrderedType(O1 : OrderedType) <: OrderedType.
         |}.
 
     Lemma lt_compat : Proper (eq ==> eq ==> iff) lt.
+        unfold Proper, respectful. intros xs xs' Hx ys ys' Hy.
+        (* I expect "rewrite Hx; rewrite Hy" to work here, but it fails with a giant message about UNDEFINED EVARS, even though I have the "Add Relation t ListOrderedType.eq" above *)
+
+        (*split; induction xs, xs', ys, ys'; simpl in *; try tauto.*)
         Admitted.
 
     Definition compare (x y : t) : comparison.
