@@ -7,15 +7,27 @@ Lemma andb_prop' : forall a b : bool, a = true /\ b = true -> (a && b)%bool = tr
 Lemma andb_prop_iff : forall a b : bool, (a = true /\ b = true) <-> ((a && b)%bool = true).
     destruct a,b; tauto. Qed.
 
+Definition DecEq A := forall x y : A, {x = y} + {x <> y}.
+Definition DecEqPair {S T} : DecEq S -> DecEq T -> DecEq (S * T).
+    intros eS eT [s1 t1] [s2 t2].
+    destruct (eS s1 s2), (eT t1 t2); subst;
+        try (left; reflexivity); 
+        (right; intro H; inversion H; easy).
+    Defined.
+
 Module ListBackedSet.
     (*Parameter A : Type.
-    Parameter dec_eq : forall x y : A, {x = y} + {x <> y}.*)
-    Fixpoint elem (A : Type) (dec_eq : forall x y : A, {x = y} + {x <> y}) x l : bool :=
-        match l with nil => false | cons y ys => orb (sumbool_rec (fun _ => bool) (fun _ => true) (fun _ => false) (dec_eq x y)) (elem A dec_eq x ys) end.
-    Fixpoint subset A dec_eq l1 l2 : bool :=
-        match l1 with nil => true | cons y ys => andb (elem A dec_eq y l2) (subset A dec_eq ys l2) end.
-    Definition eqset A dec_eq l1 l2 : bool := andb (subset A dec_eq l1 l2) (subset A dec_eq l2 l1).
+    Parameter eq_dec : forall x y : A, {x = y} + {x <> y}.*)
+    Fixpoint elem (A : Type) (eq_dec : forall x y : A, {x = y} + {x <> y}) x l : bool :=
+        match l with nil => false | cons y ys => orb (sumbool_rec (fun _ => bool) (fun _ => true) (fun _ => false) (eq_dec x y)) (elem A eq_dec x ys) end.
+    Fixpoint subset A eq_dec l1 l2 : bool :=
+        match l1 with nil => true | cons y ys => andb (elem A eq_dec y l2) (subset A eq_dec ys l2) end.
+    Definition eqset A eq_dec l1 l2 : bool := andb (subset A eq_dec l1 l2) (subset A eq_dec l2 l1).
     Fixpoint map {A B : Type} (f : A -> B) (l : list A) := match l with nil => nil | cons x xs => cons (f x) (map f xs) end.
+
+    Lemma map_cons {A B} : forall (f : A -> B) x xs, (map f (x :: xs) = f x :: map f xs)%list.
+        destruct xs; reflexivity. Qed.
+
     Fixpoint powerset {A} (l : list A) : list (list A) := match l with nil => (cons nil nil) | cons x xs => app (powerset xs) (map (cons x) (powerset xs)) end.
 
     Fixpoint expnat b e := match e with 0 => 1 | S e' => b * expnat b e' end.
@@ -33,44 +45,47 @@ Module ListBackedSet.
     Qed.
 
     Definition union := app.
-    Fixpoint intersection A dec_eq l1 l2 := match l1 with
+    Fixpoint intersection {A} eq_dec l1 l2 := match l1 with
         | nil => nil
-        | cons x xs => (if elem A dec_eq x l2 then cons x else (fun a => a)) (intersection A dec_eq xs l2)
+        | cons x xs => (if elem A eq_dec x l2 then cons x else (fun a => a)) (@ intersection A eq_dec xs l2)
         end.
 
-    Theorem subset_nil : forall A dec_eq (x : list A), subset A dec_eq x nil = true -> x = nil.
+    (*Infix "/-\" := intersection : LBS_scope.
+    Infix "\-/" := union : LBS_scope.*)
+
+    Theorem subset_nil : forall A eq_dec (x : list A), subset A eq_dec x nil = true -> x = nil.
         (intros ** ). (induction x). reflexivity. (compute in H). discriminate H. Qed.
-    Theorem subset_antisym : forall A dec_eq (x y : list A), subset A dec_eq x y = true /\ subset A dec_eq y x = true -> eqset A dec_eq x y = true.
+    Theorem subset_antisym : forall A eq_dec (x y : list A), subset A eq_dec x y = true /\ subset A eq_dec y x = true -> eqset A eq_dec x y = true.
         intros. (simpl). (unfold eqset). (destruct H). (rewrite H, H0). (simpl). reflexivity. Qed.
-    Theorem elem_liftbool : forall A dec_eq (a b : A) (x : list A), elem A dec_eq a (b :: x)%list = true -> (a = b \/ (a <> b /\ elem A dec_eq a x = true)).
-        intros A dec_eq a b x H; inversion H; destruct dec_eq as [e | n]; [ exact (or_introl e) | right; (unfold sumbool_rec, sumbool_rect); exact (conj n eq_refl)]. Qed.
-    Theorem elem_cons_eq : forall A dec_eq (a b : A) (x : list A), a = b -> elem A dec_eq a (b :: x)%list = true.
-        intros A dec_eq a b x e; rewrite e; compute; destruct (dec_eq b b); [|contradict n]; reflexivity. Qed.
-    Theorem elem_cons_neq : forall A dec_eq (a b : A) (x : list A), a <> b -> elem A dec_eq a (b :: x)%list = elem A dec_eq a x.
-        intros A dec_eq a b x n; simpl; unfold sumbool_rec, sumbool_rect; destruct dec_eq as [e|_]; [exact match n e with end | reflexivity]. Qed.
-    Theorem elem_cons_extend : forall A dec_eq (a b : A) (xs : list A), elem A dec_eq a xs = true -> elem A dec_eq a (b :: xs) = true.
-        intros A dec_eq a b xs a_in_xs; destruct (dec_eq a b); [exact (elem_cons_eq A _ a b xs e) | rewrite (elem_cons_neq A _ a b xs n); exact a_in_xs]. Qed.
-    (*Theorem subset_lcons : forall A dec_eq (a : A) (x y : list A), subset A dec_eq (a :: x) y = true -> subset A dec_eq x y = true.
-(intros A dec_eq a x y H). (induction x).
+    Theorem elem_liftbool : forall A eq_dec (a b : A) (x : list A), elem A eq_dec a (b :: x)%list = true -> (a = b \/ (a <> b /\ elem A eq_dec a x = true)).
+        intros A eq_dec a b x H; inversion H; destruct eq_dec as [e | n]; [ exact (or_introl e) | right; (unfold sumbool_rec, sumbool_rect); exact (conj n eq_refl)]. Qed.
+    Theorem elem_cons_eq : forall A eq_dec (a b : A) (x : list A), a = b -> elem A eq_dec a (b :: x)%list = true.
+        intros A eq_dec a b x e; rewrite e; compute; destruct (eq_dec b b); [|contradict n]; reflexivity. Qed.
+    Theorem elem_cons_neq : forall A eq_dec (a b : A) (x : list A), a <> b -> elem A eq_dec a (b :: x)%list = elem A eq_dec a x.
+        intros A eq_dec a b x n; simpl; unfold sumbool_rec, sumbool_rect; destruct eq_dec as [e|_]; [exact match n e with end | reflexivity]. Qed.
+    Theorem elem_cons_extend : forall A eq_dec (a b : A) (xs : list A), elem A eq_dec a xs = true -> elem A eq_dec a (b :: xs) = true.
+        intros A eq_dec a b xs a_in_xs; destruct (eq_dec a b); [exact (elem_cons_eq A _ a b xs e) | rewrite (elem_cons_neq A _ a b xs n); exact a_in_xs]. Qed.
+    (*Theorem subset_lcons : forall A eq_dec (a : A) (x y : list A), subset A eq_dec (a :: x) y = true -> subset A eq_dec x y = true.
+(intros A eq_dec a x y H). (induction x).
     - reflexivity.
     -*)
-    (*Theorem subset_rcons : forall A dec_eq (a : A) (x y : list A), subset A dec_eq x (a :: y) = true -> elem A dec_eq a x = true \/ subset A dec_eq x y = true.
-        intros A dec_eq a x y H. induction x.
+    (*Theorem subset_rcons : forall A eq_dec (a : A) (x y : list A), subset A eq_dec x (a :: y) = true -> elem A eq_dec a x = true \/ subset A eq_dec x y = true.
+        intros A eq_dec a x y H. induction x.
         - simpl. tauto.
-        - simpl. unfold sumbool_rec. unfold sumbool_rect. destruct dec_eq.
+        - simpl. unfold sumbool_rec. unfold sumbool_rect. destruct eq_dec.
             + simpl. tauto.
             + simpl.*)
-    (*Theorem subset_constail : forall A dec_eq (a : A) (x y : list A), subset A dec_eq x y = true -> subset A dec_eq x (a :: y) = true.
-        intros A dec_eq a x y H.*)
-    (*Theorem subset_refl : forall A dec_eq (x : list A), subset A dec_eq x x = true.
-    intros A dec_eq x. induction x .
+    (*Theorem subset_constail : forall A eq_dec (a : A) (x y : list A), subset A eq_dec x y = true -> subset A eq_dec x (a :: y) = true.
+        intros A eq_dec a x y H.*)
+    (*Theorem subset_refl : forall A eq_dec (x : list A), subset A eq_dec x x = true.
+    intros A eq_dec x. induction x .
     - reflexivity.
-    - simpl. unfold sumbool_rec. unfold sumbool_rect. destruct dec_eq.
+    - simpl. unfold sumbool_rec. unfold sumbool_rect. destruct eq_dec.
         + simpl.
     *)
-    (*Theorem subset_trans : forall A dec_eq (x y z : list A), subset A dec_eq x y = true /\ subset A dec_eq y z = true -> subset A dec_eq x z = true.
+    (*Theorem subset_trans : forall A eq_dec (x y z : list A), subset A eq_dec x y = true /\ subset A eq_dec y z = true -> subset A eq_dec x z = true.
         (intros ** ).  (destruct H).  (induction y).
-        - (rewrite (subset_nil A dec_eq x H)).  (apply H0).
+        - (rewrite (subset_nil A eq_dec x H)).  (apply H0).
         - 
     *)
 
@@ -87,6 +102,20 @@ Module ListBackedSet'.
     Definition Subset {A} (xs ys : list A) := forall x, Elem x xs -> Elem x ys.
     Definition EqSet {A} (xs ys : list A) := Subset xs ys /\ Subset ys xs.
 
+    Definition Union {A} (xs ys zs : list A) := forall z, Elem z zs <-> Elem z xs \/ Elem z ys.
+    Definition Intersection {A} (xs ys zs : list A) := forall z, Elem z zs <-> Elem z xs /\ Elem z ys.
+
+    Definition Union' {A} (xs ys : list A) : {zs | Union xs ys zs}.
+        Admitted.
+    Definition Intersection' {A} (xs ys : list A) : {zs | Intersection xs ys zs}.
+        Admitted.
+
+    Lemma map_elem {A B} (f : A -> B) : forall x xs, Elem x xs -> Elem (f x) (ListBackedSet.map f xs).
+        intros x xs e. induction xs; inversion e; subst.
+            - rewrite ListBackedSet.map_cons. apply Elem_head.
+            - apply Elem_tail. exact (IHxs H0).
+        Qed.
+
     Theorem elem_compat : forall A eq_dec x xs, ListBackedSet.elem A eq_dec x xs = true <-> Elem x xs.
         intros A eq_dec x xs. induction xs; [easy | split].
         - destruct (eq_dec x a).
@@ -96,6 +125,13 @@ Module ListBackedSet'.
         - intro H. inversion H.
            + apply ListBackedSet.elem_cons_eq; reflexivity.
            + subst. exact (ListBackedSet.elem_cons_extend _ _ _ _ _ (proj2 IHxs H1)).
+        Qed.
+
+    Lemma elem_dec : forall A (eq_dec : DecEq A) x (xs : list A), {Elem x xs} + {~Elem x xs}.
+        intros A eq_dec x xs.
+        destruct (ListBackedSet.elem A eq_dec x xs) eqn:H.
+        - rewrite elem_compat in H. left. exact H.
+        - right. intro H'. rewrite <- elem_compat in H'. rewrite H in H'. discriminate H'.
         Qed.
 
     Theorem Subset_lcontract {A} : forall x (xs ys : list A), Subset (x :: xs) ys -> Subset xs ys.
@@ -114,7 +150,7 @@ Module ListBackedSet'.
                 * inversion H'; subst;  tauto.
         - induction xs.
             + reflexivity.
-            + intro H. apply andb_prop'. fold ListBackedSet.subset. split.
+            + intro H. apply andb_true_intro. fold ListBackedSet.subset. split.
                 * exact (proj2 (elem_compat _ _ _ _) (H a (Elem_head _ _))).
                 * exact (IHxs (Subset_lcontract _ _ _ H)).
         Qed.
@@ -122,4 +158,5 @@ Module ListBackedSet'.
     Theorem eqset_compat : forall A eq_dec xs ys, ListBackedSet.eqset A eq_dec xs ys = true <-> EqSet xs ys.
         intros A eq_dec xs ys. unfold ListBackedSet.eqset. rewrite <- andb_prop_iff. repeat rewrite subset_compat. reflexivity.
         Qed.
+
 End ListBackedSet'.
