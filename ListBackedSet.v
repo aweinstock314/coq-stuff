@@ -27,6 +27,10 @@ Module ListBackedSet.
 
     Lemma map_cons {A B} : forall (f : A -> B) x xs, (map f (x :: xs) = f x :: map f xs)%list.
         destruct xs; reflexivity. Qed.
+    Lemma map_compose {A B C} (f : A -> B) (g : B -> C) : forall xs, map g (map f xs) = map (fun x => g (f x)) xs.
+        induction xs; simpl; [| rewrite IHxs]; reflexivity. Qed.
+    Lemma map_f_equal {A B} (f : A -> B) (g : B -> A) : forall xs, (forall x, g (f x) = x) -> xs = map (fun x => g (f x)) xs.
+        induction xs; intro e; simpl; [|repeat rewrite <- (IHxs e); rewrite e]; reflexivity. Qed.
 
     Fixpoint powerset {A} (l : list A) : list (list A) := match l with nil => (cons nil nil) | cons x xs => app (powerset xs) (map (cons x) (powerset xs)) end.
 
@@ -114,6 +118,16 @@ Module ListBackedSet'.
         intros x xs e. induction xs; inversion e; subst.
             - rewrite ListBackedSet.map_cons. apply Elem_head.
             - apply Elem_tail. exact (IHxs H0).
+        Qed.
+    Lemma map_elem' {A B} (f : A -> B) (g : { h : B -> A | forall a, h (f a) = a}) : forall x xs, Elem (f x) (ListBackedSet.map f xs) -> Elem x xs.
+        (* TODO: does this work with something weaker than invertable functions (e.g. surjective)? *)
+        intros x xs e.
+        destruct g as [g Hg].
+        set (e' := map_elem g (f x) (ListBackedSet.map f xs) e).
+        rewrite (ListBackedSet.map_compose f g) in e'.
+        rewrite <- (ListBackedSet.map_f_equal f g _ Hg) in e'.
+        rewrite Hg in e'.
+        exact e'.
         Qed.
 
     Theorem elem_compat : forall A eq_dec x xs, ListBackedSet.elem A eq_dec x xs = true <-> Elem x xs.
