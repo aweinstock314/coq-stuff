@@ -18,11 +18,23 @@ Definition DecEqPair {S T} : DecEq S -> DecEq T -> DecEq (S * T).
 Definition Injective {A B} (f : A -> B) := forall x x', f x = f x' -> x = x'.
 Definition Surjective {A B} (f : A -> B) := forall y, {x | f x = y}.
 Definition LeftInvertible {A B} (f : A -> B) := exists g, forall x, g (f x) = x.
+Definition RightInvertible {A B} (f : A -> B) := exists g, forall x, f (g x) = x.
 Definition Invertible {A B} (f : A -> B) := {g | forall x y, f x = y <-> g y = x}.
 
+Example snd_surj {A B} : {x : A | True} -> Surjective (@ snd A B).
+    intros [x _] y. exists (x, y). reflexivity. Qed.
+
+Example not_inj_implies_leftinvertible (H : forall A B (f : A -> B), Injective f -> LeftInvertible f) : False.
+    destruct (H False True (fun _ => I) (fun x _ _ => match x with end)) as [g _]. exact (g I).
+    Qed.
 Example not_left_implies_right_invertable : ~(forall A B (f : A -> B) (g : B -> A), (forall x, g (f x) = x) -> (forall y, f (g y) = y)).
     intros H.
     discriminate (H True bool (fun _ => false) (fun _ => I) (fun x => match x with I => eq_refl end) true).
+    Qed.
+
+Lemma surj_implies_rightinvertible {A B} : forall (f : A -> B), Surjective f -> RightInvertible f.
+    intros f surj. exists (fun y => proj1_sig (surj y)). intro x.
+    destruct (surj x) as [x' e']. simpl. exact e'.
     Qed.
 
 Definition iffT P Q := prod (P -> Q) (Q -> P).
@@ -36,11 +48,12 @@ Lemma invertable_alternate_characterization {A B}: forall (f : A -> B), iffT (In
         (* Invertible -> Surjective *)
         + intros y. exists (g y). exact (proj2 (g_inv_f _ y) eq_refl).
     (* Injective /\ Surjective -> Invertible *)
-    - intros [inj surj]. exists (fun y => proj1_sig (surj y)). intros x y. split; intro e.
+    - intros [inj surj]. exists (fun y => proj1_sig (surj y)). intros x y.
+        split; intro e; destruct (surj y) as [x' e']; simpl in *.
         (* f x = y -> g y = x *)
-        + destruct (surj y) as [x' e']. simpl. rewrite <- e in e'. exact (inj _ _ e').
+        + rewrite <- e in e'. exact (inj _ _ e').
         (* g y = x -> f x = y *)
-        + destruct (surj y) as [x' e']. simpl in e. rewrite e in e'. exact e'.
+        + rewrite e in e'. exact e'.
     Qed.
 
 Module ListBackedSet.
@@ -147,7 +160,7 @@ Module ListBackedSet'.
             - rewrite ListBackedSet.map_cons. apply Elem_head.
             - apply Elem_tail. exact (IHxs H0).
         Qed.
-    Lemma map_elem' {A B} (f : A -> B) (g : LeftInvertible f) : forall x xs, Elem (f x) (ListBackedSet.map f xs) -> Elem x xs.
+    Lemma co_map_elem_leftinv {A B} (f : A -> B) (g : LeftInvertible f) : forall x xs, Elem (f x) (ListBackedSet.map f xs) -> Elem x xs.
         (* TODO: does this work with something weaker than invertable functions (e.g. surjective)? *)
         intros x xs e.
         destruct g as [g Hg].
@@ -156,6 +169,10 @@ Module ListBackedSet'.
         rewrite <- (ListBackedSet.map_f_equal f g _ Hg) in e'.
         rewrite Hg in e'.
         exact e'.
+        Qed.
+    Example not_co_map_elem_rightinv (H : forall A B (f : A -> B) (g : RightInvertible f) x xs, Elem (f x) (ListBackedSet.map f xs) -> Elem x xs) : False.
+        set (H' := (H bool True (fun _ => I) (ex_intro _ (fun _ => false) (fun x => match x with I => eq_refl end)) true (false :: nil)%list (Elem_head _ _))).
+        inversion H'. inversion H1.
         Qed.
 
     Theorem elem_compat : forall A eq_dec x xs, ListBackedSet.elem A eq_dec x xs = true <-> Elem x xs.
