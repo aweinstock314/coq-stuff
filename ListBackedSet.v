@@ -147,13 +147,16 @@ Module ListBackedSet'.
     Definition Subset {A} (xs ys : list A) := forall x, Elem x xs -> Elem x ys.
     Definition EqSet {A} (xs ys : list A) := Subset xs ys /\ Subset ys xs.
 
+    (* Union, Intersection, and Difference are declared as three-place relations. `Union xs ys zs` is intended to be read as "zs is the union of xs and ys".
+        This allows giving them high-level definitions and avoiding a dependence on decideable equality/comparison for the underlying elements. *)
     Definition Union {A} (xs ys zs : list A) := forall z, Elem z zs <-> Elem z xs \/ Elem z ys.
     Definition Intersection {A} (xs ys zs : list A) := forall z, Elem z zs <-> Elem z xs /\ Elem z ys.
+    Definition Difference {A} (xs ys zs : list A) := forall z, Elem z zs <-> Elem z xs /\ ~Elem z ys.
 
-    Definition Union' {A} (xs ys : list A) : {zs | Union xs ys zs}.
+    (*Definition Union' {A} (xs ys : list A) : {zs | Union xs ys zs}.
         Admitted.
     Definition Intersection' {A} (xs ys : list A) : {zs | Intersection xs ys zs}.
-        Admitted.
+        Admitted.*)
 
     Lemma map_elem {A B} (f : A -> B) : forall x xs, Elem x xs -> Elem (f x) (ListBackedSet.map f xs).
         intros x xs e. induction xs; inversion e; subst.

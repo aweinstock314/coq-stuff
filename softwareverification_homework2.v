@@ -122,18 +122,29 @@ Module Part1.
         simpl. rewrite (IHx y z).
         reflexivity.
         Qed.
+
 End Part1.
 
 Load ListBackedSet.
+(* ListBackedSet contains functions that deal with lists-as-sets via decideable equality, that I developed for the lattice project. *)
 Import ListBackedSet.
+(* ListBackedSet' contains functions that deal with lists-as-sets via the Elem inductive predicate and unification, developed for this project.
+    The various _compat lemmas proven in it show that the original versions are correct relative to the (new, shorter) specifications. *)
 Import ListBackedSet'.
 
 Module Part2.
     Definition relation (S T : Type) := list (S * T).
 
+    (* The domain and range of a relation are both implemented via map, which I defined in ListBackedSet. *)
     Definition domain {S T} (rel : relation S T) := map fst rel.
     Definition range {S T} (rel : relation S T) := map snd rel.
 
+    (* There were a lot of false starts/proof attempts for range_theorem_2, which eventually lead to discovering the following lemmas (proved in ListBackedSet.v): 
+        Lemma map_elem {A B} (f : A -> B) : forall x xs, Elem x xs -> Elem (f x) (map f xs).
+        Lemma co_map_elem_inhabited {A B} (f : A -> B) : forall y xs, Elem y (map f xs) -> exists x, Elem x xs /\ f x = y.
+
+        These ended up making the finished proofs relatively short.
+    *)
     Lemma range_theorem_2_lemma_1 {S T} : forall (r1 r2 : relation S T) xs ys (x : S * T), Intersection r1 r2 xs -> Intersection (range r1) (range r2) ys -> Elem x xs -> Elem (snd x) ys.
         intros r1 r2 xs ys x Int_xs Int_ys x_in_xs.
         unfold Intersection in *.
@@ -144,10 +155,38 @@ Module Part2.
         Qed.
 
     Theorem range_theorem_2 {S T} : forall (r1 r2 : relation S T) xs ys, Intersection r1 r2 xs -> Intersection (range r1) (range r2) ys -> Subset (range xs) ys.
-        intros r1 r2 xs ys Int_xs Int_ys x x_in_xs.
-        destruct (co_map_elem_inhabited snd _ _ x_in_xs) as [st [ist est]].
+        intros r1 r2 xs ys Int_xs Int_ys y y_in_rxs.
+        destruct (co_map_elem_inhabited snd _ _ y_in_rxs) as [st [ist est]].
         set (H := range_theorem_2_lemma_1 r1 r2 _ _ st Int_xs Int_ys ist).
         rewrite est in H. exact H.
         Qed.
+
+    (* I proved domain_theorem_3' next, and then realized that its proof could be generalized to handle the range case as well *)
+    Theorem domain_theorem_3' {S T} : forall (r1 r2 : relation S T) xs ys, Difference (domain r1) (domain r2) xs -> Difference r1 r2 ys -> Subset xs (domain ys).
+        unfold Difference.
+        intros r1 r2 xs ys diff_xs diff_ys x x_in_xs.
+        destruct (proj1 (diff_xs x) x_in_xs) as [e1 e2].
+        destruct (co_map_elem_inhabited _ _ _ e1) as [a [Ha1 Ha2]].
+        assert (Hb : ~(Elem a r2)). { intros H. apply e2. rewrite <- Ha2. apply (map_elem _ _ _ H). }
+        rewrite <- Ha2.
+        exact (map_elem fst _ _ (proj2 (diff_ys a) (conj Ha1 Hb))).
+        Qed.
+
+    (* the generalized map_theorem_3 differs from domain_theorem_3' only in that it replaces fst with an arbitrary f *)
+    Lemma map_theorem_3 {S T U} : forall (f : S * T -> U) (r1 r2 : relation S T) xs ys, Difference (map f r1) (map f r2) xs -> Difference r1 r2 ys -> Subset xs (map f ys).
+        unfold Difference.
+        intros f r1 r2 xs ys diff_xs diff_ys x x_in_xs.
+        destruct (proj1 (diff_xs x) x_in_xs) as [e1 e2].
+        destruct (co_map_elem_inhabited _ _ _ e1) as [a [Ha1 Ha2]].
+        assert (Hb : ~(Elem a r2)). { intros H. apply e2. rewrite <- Ha2. apply (map_elem _ _ _ H). }
+        rewrite <- Ha2.
+        exact (map_elem f _ _ (proj2 (diff_ys a) (conj Ha1 Hb))).
+        Qed.
+
+    (* domain_theorem_3 and range_theorem_3 are both trivial corollaries of map_theorem_3 *)
+    Theorem domain_theorem_3 {S T} : forall (r1 r2 : relation S T) xs ys, Difference (domain r1) (domain r2) xs -> Difference r1 r2 ys -> Subset xs (domain ys).
+        exact (map_theorem_3 fst). Qed.
+    Theorem range_theorem_3 {S T} : forall (r1 r2 : relation S T) xs ys, Difference (range r1) (range r2) xs -> Difference r1 r2 ys -> Subset xs (range ys).
+        exact (map_theorem_3 snd). Qed.
 
 End Part2.
