@@ -174,6 +174,11 @@ Module ListBackedSet'.
         set (H' := (H bool True (fun _ => I) (ex_intro _ (fun _ => false) (fun x => match x with I => eq_refl end)) true (false :: nil)%list (Elem_head _ _))).
         inversion H'. inversion H1.
         Qed.
+    Lemma co_map_elem_inhabited {A B} (f : A -> B) : forall y xs, Elem y (ListBackedSet.map f xs) -> exists x, Elem x xs /\ f x = y.
+        intros y xs e. induction xs as [|x xs]; inversion e.
+        - exists x. split; [apply Elem_head | reflexivity].
+        - destruct (IHxs H0) as [x' [? ?]]. exists x'. split; [apply Elem_tail|]; assumption.
+        Qed.
 
     Theorem elem_compat : forall A eq_dec x xs, ListBackedSet.elem A eq_dec x xs = true <-> Elem x xs.
         intros A eq_dec x xs. induction xs; [easy | split].

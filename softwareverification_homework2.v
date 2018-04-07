@@ -143,49 +143,11 @@ Module Part2.
         exact (proj2 (Int_ys (snd x)) (conj xr1 xr2)).
         Qed.
 
-    (*Theorem range_theorem_2 {S T} (eS : DecEq S) (eT : DecEq T) : forall (r1 r2 : relation S T), Subset (range (intersection (DecEqPair eS eT) r1 r2)) (intersection eT (range r1) (range r2)).*)
-    (*Theorem range_theorem_2 {S T}  : forall (r1 r2 : relation S T), Subset (range (proj1_sig (Intersection' r1 r2))) (proj1_sig (Intersection' (range r1) (range r2))).*)
-    Theorem range_theorem_2 {S T} (eS : DecEq S) (eT : DecEq T) : forall (r1 r2 : relation S T) xs ys, Intersection r1 r2 xs -> Intersection (range r1) (range r2) ys -> Subset (range xs) ys.
-        intros r1 r2 xs.
-        unfold Intersection in *.
-        induction xs; intros ys Int_xs Int_ys y y_in_rxs.
-        - inversion y_in_rxs.
-        - set (f := (fun st H => range_theorem_2_lemma_1 r1 r2 (a :: xs) ys st Int_xs Int_ys H) : forall st, Elem st (a :: xs) -> Elem (snd st) ys).
-
-        inversion y_in_rxs; subst.
-            + refine (f a _). (apply Elem_head).
-            + apply (IHxs ys).
-                * intro z. split.
-                    -- intro e. exact (proj1 (Int_xs z) (Elem_tail _ _ _ e)).
-                    -- intro e. set (H := proj2 (Int_xs z) e). set (H' := f z H).
-        Restart.
-        set (eST := DecEqPair eS eT).
-        unfold Intersection in *.
-(*
-        induction r1; intro r2; intros xs ys Int_xs Int_ys y y_in_rxs; match goal with
-            | Int_xs : forall z : S * T, Elem _ _ <-> Elem z _ /\ Elem z _, y_in_rxs : Elem _ (range xs) |- _ =>
-                induction xs as [| a xs]; [inversion y_in_rxs |
-                destruct (proj1 (Int_xs a) (Elem_head _ _)) as [H1 H2]; try inversion H1; inversion H2]
-            | _ => idtac "failed"
-        end.
-*)
-        induction r1; intros r2 xs ys Int_xs Int_ys y y_in_rxs.
-        - (induction xs as [|a xs]).
-            + (inversion y_in_rxs).
-            + (set (H := proj1 (proj1 (Int_xs a) (Elem_head _ _)))). (inversion H).
-        - (unfold Subset in IHr1). (apply (IHr1 r2 xs ys)).
-            + intro z. specialize (Int_xs z). split.
-                * rewrite Int_xs. intros [e1 e2]. refine (conj _ e2).
-        Restart.
-        set (eST := DecEqPair eS eT).
-        intros r1 r2 xs ys Int_xs Int_ys y y_in_rxs.
-        unfold Intersection in *.
-        (induction xs).
-        - (inversion y_in_rxs).
-        - destruct (proj1 (Int_xs a) (Elem_head _ _)) as [ar1 ar2].
-            apply (map_elem snd) in ar1; apply (map_elem snd) in ar2.
-            fold (range r1) in ar1; fold (range r2) in ar2.
-            set (H := proj2 (Int_ys (snd a)) (conj ar1 ar2)).
-        Abort.
+    Theorem range_theorem_2 {S T} : forall (r1 r2 : relation S T) xs ys, Intersection r1 r2 xs -> Intersection (range r1) (range r2) ys -> Subset (range xs) ys.
+        intros r1 r2 xs ys Int_xs Int_ys x x_in_xs.
+        destruct (co_map_elem_inhabited snd _ _ x_in_xs) as [st [ist est]].
+        set (H := range_theorem_2_lemma_1 r1 r2 _ _ st Int_xs Int_ys ist).
+        rewrite est in H. exact H.
+        Qed.
 
 End Part2.
