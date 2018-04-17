@@ -7,24 +7,19 @@ Arguments null [S]. Arguments insert [S] h t. (* declare the type argument for t
 
 Infix "++'" := insert (at level 50).
 
-Definition in_def {S} := {in' : S -> Set' S -> Prop |
-    (forall x, ~ in' x null) /\
-    (forall x h t, in' x (h ++' t) <-> x = h \/ in' x t) }.
 
 Definition in_def' {S} (in' : S -> Set' S -> Prop) :=
     (forall x, ~ in' x null) /\
     (forall x h t, in' x (h ++' t) <-> x = h \/ in' x t).
 
-Definition diff_def {S} (in_spec : in_def) := 
-    let in' := proj1_sig in_spec in {diff : Set' S -> Set' S -> Set' S |
-    (forall x, diff null x = null) /\
-    (forall h t A, in' h A -> diff (h ++' t) A = diff t A) /\
-    (forall h t A, ~in' h A -> diff (h ++' t) A = h ++' diff t A) }.
-
 Definition diff_def' {S} in' (in_spec : in_def' in') (diff : Set' S -> Set' S -> Set' S) := 
     (forall x, diff null x = null) /\
     (forall h t A, in' h A -> diff (h ++' t) A = diff t A) /\
     (forall h t A, ~in' h A -> diff (h ++' t) A = h ++' diff t A).
+
+Definition in_def {S} := {in' : S -> Set' S -> Prop | in_def' in' }.
+Definition diff_def {S} (in_spec : in_def) := let in' := proj1_sig in_spec in
+    { diff : Set' S -> Set' S -> Set' S | diff_def' in' (proj2_sig in_spec) diff }.
 
 Theorem diff_characterization_1 :
     forall S (in_spec : in_def) (diff_spec : diff_def in_spec),
