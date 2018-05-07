@@ -1,6 +1,7 @@
 Load "ListBackedSet".
 
 (* adapted from http://www.cs.rpi.edu/~milanova/csci4450/Lecture19.pdf *)
+Module Imp.
 Inductive LangType := TyNat | TyBool.
 Scheme Equality for LangType.
 
@@ -9,14 +10,18 @@ Definition denote_type x := match x with
     | TyBool => bool
     end.
 
+Inductive UnaryOperator : LangType -> Type := Not : UnaryOperator TyBool.
+
 Inductive BinaryOperator : LangType -> LangType -> Type :=
     Plus : BinaryOperator TyNat TyNat | Times : BinaryOperator TyNat TyNat |
     And : BinaryOperator TyBool TyBool | Or : BinaryOperator TyBool TyBool |
-    Eq : forall T, DecEq (denote_type T) -> BinaryOperator T TyBool.
+    Eq : forall T, DecEq (denote_type T) -> BinaryOperator T TyBool |
+    Lt : BinaryOperator TyNat TyBool.
 
 Inductive Expr : LangType -> Type :=
     | Lit : forall T (x:denote_type T), Expr T
     | Var : forall T, nat -> Expr T
+    | Unop : forall T, UnaryOperator T -> Expr T -> Expr T
     | Binop : forall T U, BinaryOperator T U -> Expr T -> Expr T -> Expr U.
 
 Inductive Stmt :=
@@ -43,10 +48,14 @@ Definition augment_env {T} (index : nat) (value : denote_type T) (sigma : Env) :
         | false => sigma n
     end.
 
-Definition denote_binop {T U} (b : BinaryOperator T U) : (denote_type T -> denote_type T -> denote_type U) := match b with
+Definition denote_unop {T} (op : UnaryOperator T) : (denote_type T -> denote_type T) := match op with
+    | Not => negb
+    end.
+Definition denote_binop {T U} (op : BinaryOperator T U) : (denote_type T -> denote_type T -> denote_type U) := match op with
     | Plus => Nat.add | Times => Nat.mul
     | And => andb | Or => orb
     | Eq _ eq_dec => fun x y => if eq_dec x y then true else false
+    | Lt => Nat.ltb
     end.
 
 Fixpoint denote_expr {T} (sigma : Env) (e : Expr T) : option (denote_type T) := match e with
@@ -56,10 +65,13 @@ Fixpoint denote_expr {T} (sigma : Env) (e : Expr T) : option (denote_type T) := 
         | left eq_t1_t2 => Some ltac:(rewrite eq_t1_t2; exact y)
         | right _ => None
         end end
-    | Binop _ _ b e1 e2 =>
+    | Unop _ op e =>
+        (denote_expr sigma e) >>= fun x =>
+        Some (denote_unop op x)
+    | Binop _ _ op e1 e2 =>
         (denote_expr sigma e1) >>= fun x =>
         (denote_expr sigma e2) >>= fun y =>
-        Some (denote_binop b x y)
+        Some (denote_binop op x y)
     end.
 
 Fixpoint denote_stmt (depth : nat) (s : Stmt) (sigma : Env) : option Env := match depth with 0 => None | S n =>
@@ -73,3 +85,5 @@ Fixpoint denote_stmt (depth : nat) (s : Stmt) (sigma : Env) : option Env := matc
         end
     | Skip => Some sigma
     end end.
+End Imp.
+Import Imp.
