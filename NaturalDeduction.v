@@ -102,7 +102,6 @@ Definition abs {T} {Inj} {Arr} {V} {A B} (x : V A -> Expr V (Inj B)) : @Expr T I
 Definition embed_id {T} {Inj} {Arr} {V} {A} : @Expr T Inj Arr V (Arr A A) := abs (fun x => var x).
 End Attempt2.
 
-Module Attempt3.
 Record TypeSystem := {
     T : Type -> Type; (* typing derivations, indexed over the type of constants *)
     Inj : forall A, T A; (* injecting a constant *)
@@ -121,6 +120,7 @@ Definition Untyped := {|
     Arr := fun unit unit => existT _ unit tt;
     |}.
 
+Module Attempt3.
 Inductive Expr (TS : TypeSystem) (V : Type -> Type) : {C & T TS C} -> Type :=
     | Const : forall A, A -> Expr TS V (existT _ _ (Inj TS A))
     | Var : forall A, V A -> Expr TS V (existT _ _ (Inj TS A))
@@ -158,6 +158,40 @@ Definition betaOpt {TS} {A} {U V : Type -> Type} (e : Expr TS (fun x => Expr TS 
     end).
     Abort.
 End Attempt3.
+
+Module Attempt4.
+
+Ltac with_sigT x := match goal with
+    (*| e : _ = projT1 x |- _ => let H := fresh in set (H := projT2 x); rewrite <- e in H; exact H*)
+    | e : _ = projT1 x |- _ => exact (eq_rect_r _ (projT2 x) e)
+    (*| e : _ = projT1 x |- _ => exact (eq_rect (projT1 x) (fun y => _ y) (projT2 x) _ (eq_sym e))*)
+    (*| e : _ = projT1 x |- _ => exact (match eq_sym e in (_ = y) return (_ y) with eq_refl => projT2 x end)*)
+    end.
+Inductive Expr (TS : TypeSystem) (V : Type -> Type) (C : Type) : T TS C -> Type :=
+    | Const : C -> Expr TS V C (Inj TS C)
+    | Var : V C -> Expr TS V C (Inj TS C)
+    | App : forall A B (e : B = projT1 (Arr TS A C)), Expr TS V B ltac:(with_sigT (Arr TS A C)) -> Expr TS V A (Inj TS A) -> Expr TS V C (Inj TS C)
+    | Abs : forall A B (e : C = projT1 (Arr TS A B)), (V A -> Expr TS V B (Inj TS B)) -> Expr TS V C ltac:(with_sigT (Arr TS A B)).
+
+Definition const {TS} {V} {A} (x : A) : Expr TS V A (Inj TS A) := Const TS V A x.
+Definition var {TS} {V} {A} (x : V A) : Expr TS V A (Inj TS A) := Var TS V A x.
+Definition app {TS} {V} {A B C} {H : C = projT1 (Arr TS A B)} (e1 : Expr TS V C ltac:(with_sigT (Arr TS A B))) e2 : Expr TS V B (Inj TS B) := App TS V B A C H e1 e2.
+Definition abs {TS} {V} {A B C} {H : C = projT1 (Arr TS A B)} (x : V A -> Expr TS V _ (Inj TS B)) : Expr TS V _ ltac:(with_sigT (Arr TS A B)) := Abs TS V C A B H x.
+
+Definition embed_id {TS} {V} {A C} {H : C = projT1 (Arr TS A A)} : Expr TS V C ltac:(with_sigT (Arr TS A A)) := abs (fun x => var x).
+
+Definition ShallowSimpleTypedExpr (V : Type -> Type) (A : Type) : Type := Expr ShallowSimpleType V A A.
+
+(* Unfortunately, because rewriting by an equality is used before the recursive call, it's not structurally recursive *)
+Fail Fixpoint eval {C} (e : ShallowSimpleTypedExpr (fun x => x) C) {struct e} : C := match e with
+    | Const a => a
+    | Var v => v
+    | App A B H e1 e2 => ltac:(simpl in *; rewrite H in e1; exact ((eval _ e1) (eval _ e2)))
+    | Abs A B H f => ltac:(simpl in *; inversion H; subst; intros x; exact (eval _ (f x)))
+    end.
+
+
+End Attempt4.
 
 Include Attempt3.
 
