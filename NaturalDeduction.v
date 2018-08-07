@@ -170,26 +170,33 @@ Ltac with_sigT x := match goal with
 Inductive Expr (TS : TypeSystem) (V : Type -> Type) (C : Type) : T TS C -> Type :=
     | Const : C -> Expr TS V C (Inj TS C)
     | Var : V C -> Expr TS V C (Inj TS C)
-    | App : forall A B (e : B = projT1 (Arr TS A C)), Expr TS V B ltac:(with_sigT (Arr TS A C)) -> Expr TS V A (Inj TS A) -> Expr TS V C (Inj TS C)
+    | App : forall A, Expr TS V (projT1 (Arr TS A C)) (projT2 (Arr TS A C)) -> Expr TS V A (Inj TS A) -> Expr TS V C (Inj TS C)
     | Abs : forall A B (e : C = projT1 (Arr TS A B)), (V A -> Expr TS V B (Inj TS B)) -> Expr TS V C ltac:(with_sigT (Arr TS A B)).
 
 Definition const {TS} {V} {A} (x : A) : Expr TS V A (Inj TS A) := Const TS V A x.
 Definition var {TS} {V} {A} (x : V A) : Expr TS V A (Inj TS A) := Var TS V A x.
-Definition app {TS} {V} {A B C} {H : C = projT1 (Arr TS A B)} (e1 : Expr TS V C ltac:(with_sigT (Arr TS A B))) e2 : Expr TS V B (Inj TS B) := App TS V B A C H e1 e2.
+Definition app {TS} {V} {A B} (e1 : Expr TS V (projT1 (Arr TS A B)) _) e2 : Expr TS V B (Inj TS B) := App TS V B A e1 e2.
 Definition abs {TS} {V} {A B C} {H : C = projT1 (Arr TS A B)} (x : V A -> Expr TS V _ (Inj TS B)) : Expr TS V _ ltac:(with_sigT (Arr TS A B)) := Abs TS V C A B H x.
 
-Definition embed_id {TS} {V} {A C} {H : C = projT1 (Arr TS A A)} : Expr TS V C ltac:(with_sigT (Arr TS A A)) := abs (fun x => var x).
+Definition embed_id' {TS} {V} {A C} {H : C = projT1 (Arr TS A A)} : Expr TS V C ltac:(with_sigT (Arr TS A A)) := abs (fun x => var x).
+Definition embed_id {TS} {V} {A} : Expr TS V (projT1 (Arr TS A A)) (projT2 (Arr TS A A)) := @embed_id' TS V _ _ eq_refl.
 
 Definition ShallowSimpleTypedExpr (V : Type -> Type) (A : Type) : Type := Expr ShallowSimpleType V A A.
 
-(* Unfortunately, because rewriting by an equality is used before the recursive call, it's not structurally recursive *)
-Fail Fixpoint eval {C} (e : ShallowSimpleTypedExpr (fun x => x) C) {struct e} : C := match e with
+Fixpoint eval {C} (e : ShallowSimpleTypedExpr (fun x => x) C) {struct e} : C := match e with
     | Const a => a
     | Var v => v
-    | App A B H e1 e2 => ltac:(simpl in *; rewrite H in e1; exact ((eval _ e1) (eval _ e2)))
-    | Abs A B H f => ltac:(simpl in *; inversion H; subst; intros x; exact (eval _ (f x)))
+    | App A e1 e2 => (eval e1) (eval e2)
+    | Abs A B H f => ltac:(simpl in *; rewrite H; intros x; exact (eval _ (f x)))
     end.
 
+Definition UntypedExpr (V : Type -> Type) := Expr Untyped V unit tt.
+
+Definition uapp {V} (e1 e2 : UntypedExpr V) : UntypedExpr V := app e1 e2.
+Definition uabs {V : Type -> Type} (e1 : V unit -> UntypedExpr V) : UntypedExpr V := Abs Untyped V unit unit unit eq_refl e1.
+
+Definition selfapply {V} : UntypedExpr V := uabs (fun x => uapp (var x) (var x)).
+Definition diverge {V} : UntypedExpr V := uapp selfapply selfapply.
 
 End Attempt4.
 
