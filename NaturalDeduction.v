@@ -103,22 +103,38 @@ Definition embed_id {T} {Inj} {Arr} {V} {A} : @Expr T Inj Arr V (Arr A A) := abs
 End Attempt2.
 
 Module Attempt3.
-Inductive Expr {T : Type -> Type} {Inj : forall A, T A} {Arr : forall A B, {C & T C}} (V : Type -> Type) : {C & T C} -> Type :=
-    | Const : forall A, A -> Expr V (existT _ _ (Inj A))
-    | Var : forall A, V A -> Expr V (existT _ _ (Inj A))
-    | App : forall A B C, (T C = projT1 (Arr A B)) -> Expr V (Arr A B) -> Expr V (existT _ _ (Inj A)) -> Expr V (existT _ _ (Inj B))
-    | Abs : forall A B, (V A -> Expr V (existT _ _ (Inj B))) -> Expr V (Arr A B).
+Record TypeSystem := {
+    T : Type -> Type; (* typing derivations, indexed over the type of constants *)
+    Inj : forall A, T A; (* injecting a constant *)
+    Arr : forall (A B : Type), {C & T C}; (* the arrow constructor *)
+    }.
 
-Definition const {T} {Inj} {Arr} {V} {A} (x : A) : @Expr T Inj Arr V (existT _ _ (Inj A)) := Const V A x.
-Definition var {T} {Inj} {Arr} {V} {A} (x : V A) : @Expr T Inj Arr V (existT _ _ (Inj A)) := Var V A x.
-Definition app {T} {Inj} {Arr} {V} {A B C} {H} (e1 : @Expr T Inj Arr V (Arr A B)) e2 : @Expr T Inj Arr V (existT _ _ (Inj B)) := App V A B C H e1 e2.
-Definition abs {T} {Inj} {Arr} {V} {A B} (x : V A -> Expr V (existT _ _ (Inj B))) : @Expr T Inj Arr V (Arr A B) := Abs V A B x.
+Definition ShallowSimpleType := {|
+    T := fun _ => Type;
+    Inj := fun x => x;
+    Arr := fun a b => existT _ (a -> b) (a -> b);
+    |}.
 
-Definition embed_id {T} {Inj} {Arr} {V} {A} : @Expr T Inj Arr V (Arr A A) := abs (fun x => var x).
+Definition Untyped := {|
+    T := fun _ => unit;
+    Inj := fun _ => tt;
+    Arr := fun unit unit => existT _ unit tt;
+    |}.
 
-Definition ShallowSimplyTypedExpr := @Expr (fun x => Type) (fun x => x) (fun a b => existT _ (a -> b) (a -> b)).
+Inductive Expr (TS : TypeSystem) (V : Type -> Type) : {C & T TS C} -> Type :=
+    | Const : forall A, A -> Expr TS V (existT _ _ (Inj TS A))
+    | Var : forall A, V A -> Expr TS V (existT _ _ (Inj TS A))
+    | App : forall A B C, (T TS C = projT1 (Arr TS A B)) -> Expr TS V (Arr TS A B) -> Expr TS V (existT _ _ (Inj TS A)) -> Expr TS V (existT _ _ (Inj TS B))
+    | Abs : forall A B, (V A -> Expr TS V (existT _ _ (Inj TS B))) -> Expr TS V (Arr TS A B).
 
-Fixpoint eval {A} (e : ShallowSimplyTypedExpr (fun x => x) A) : projT1 A := match e with
+Definition const {TS} {V} {A} (x : A) : Expr TS V (existT _ _ (Inj TS A)) := Const TS V A x.
+Definition var {TS} {V} {A} (x : V A) : Expr TS V (existT _ _ (Inj TS A)) := Var TS V A x.
+Definition app {TS} {V} {A B C} {H} (e1 : Expr TS V (Arr TS A B)) e2 : Expr TS V (existT _ _ (Inj TS B)) := App TS V A B C H e1 e2.
+Definition abs {TS} {V} {A B} (x : V A -> Expr TS V (existT _ _ (Inj TS B))) : Expr TS V (Arr TS A B) := Abs TS V A B x.
+
+Definition embed_id {TS} {V} {A} : Expr TS V (Arr TS A A) := abs (fun x => var x).
+
+Fixpoint eval {A} (e : Expr ShallowSimpleType (fun x => x) A) : projT1 A := match e with
     | Const _ a => a
     | Var _ v => v
     | App _ _ _ _ e1 e2 => (eval e1) (eval e2)
@@ -127,32 +143,20 @@ Fixpoint eval {A} (e : ShallowSimplyTypedExpr (fun x => x) A) : projT1 A := matc
 
 (* Compute (eval embed_id tt, eval embed_id 42). *)
 
-Definition UntypedExpr (V : Type -> Type) := @Expr (fun _ => unit) (fun _ => tt) (fun unit unit => (existT _ unit tt)) V (existT _ (unit : Type) tt).
+Definition UntypedExpr (V : Type -> Type) := Expr Untyped V (existT _ (unit : Type) tt).
 
 Definition uapp {V} (e1 e2 : UntypedExpr V) : UntypedExpr V.
-Proof. refine (App V unit unit unit _ e1 e2); simpl; reflexivity. Defined.
+Proof. refine (App Untyped V unit unit unit _ e1 e2); simpl; reflexivity. Defined.
 
 Definition selfapply {V} : UntypedExpr V := abs (fun x => uapp (var x) (var x)).
 Definition diverge {V} : UntypedExpr V := uapp selfapply selfapply.
 
-Fail Definition betaOpt {V} (e : UntypedExpr (fun _ => { U : Type -> Type & UntypedExpr U })) : option (UntypedExpr V) := match e with
-    (*| App A B C q (Abs a b E1) E2 => Some ltac:(simpl in q; idtac)*)
-    | App A B C q (Abs a b E1) E2 => Some ltac:(simpl in *; idtac; apply E1)
-    (*| App A B C q (Abs a b E1) E2 => Some ltac:(simpl in q; idtac; refine (E1 E2))*)
-    | _ => None
-    end.
-Fail Definition betaOpt {T} {Inj} {Arr} {A} {V : Type -> Type} (e : @Expr T Inj Arr V (existT _ A (Inj A))) : option (@Expr T Inj Arr V (existT _ A (Inj A))) := match e with
-    | App A B C q (Abs a b E1) E2 => Some ltac:(simpl in *; idtac; apply E1)
-    | _ => None
-    end.
-
-Definition betaOpt {T} {Inj} {Arr} {A} {U V : Type -> Type} (e : @Expr T Inj Arr (fun x => @Expr T Inj Arr (fun _ => x) (existT _ A (Inj A))) (existT _ A (Inj A))) : option (@Expr T Inj Arr V (existT _ A (Inj A))).
+Definition betaOpt {TS} {A} {U V : Type -> Type} (e : Expr TS (fun x => Expr TS (fun _ => x) (existT _ A (Inj TS A))) (existT _ A (Inj TS A))) : option (Expr TS V (existT _ A (Inj TS A))).
     refine (match e with
     | App A B C q (Abs a b E1) E2 => Some _
     | _ => None
     end).
     Abort.
-(* Attempt4 with A/B/C non-existential in Expr? *)
 End Attempt3.
 
 Include Attempt3.
