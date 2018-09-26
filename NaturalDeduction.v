@@ -42,6 +42,129 @@ Fixpoint interp_ast (a : AST) : Prop := match a with
     | Imp x y => interp_ast x -> interp_ast y
     end.
 
+Theorem CIC_embeds_IPL1 : forall a, Derivation [] a -> interp_ast a.
+intros ast deriv.
+Ltac finisher := subst; simpl in *; try tauto; try discriminate.
+Ltac driver := match goal with
+    | H : (Derivation _ _) |- _ => idtac "driving"; inversion H; clear H; finisher
+    | _ => idtac "driving empty match"
+    end.
+Ltac simplifier := match goal with
+    | H : (cons _ _ = nil) |- _ => idtac "cons_nil_disc"; discriminate H
+    | H : (Neg ?x = ?x) |- _ => idtac "Neg x = x"; let H' := fresh in assert (H' : forall x, Neg x <> x) by (induction 0; congruence); idtac "foo"; specialize (H' _ H); destruct H'
+    | H : (Imp ?x Bot = ?x) |- _ => idtac "blah"; let H' := fresh in assert (H' : forall x, Imp x Bot <> x) by (induction 0; congruence); idtac "foo"; specialize (H' _ H); destruct H'
+    | H : False |- _ => destruct H
+    | H : (_ ++ _ = []) |- _ => idtac "app_eq_nil"; let H' := fresh in pose (H' := app_eq_nil _ _ H); destruct H'; subst
+    | |- ~(False \/ _) => idtac "~(False \/ _)"; destruct 1; try assumption
+    | H : (False \/ _) |- _ => idtac "H:(False \/ _)"; destruct H; try assumption
+    | H : (_ \/ False) |- _ => idtac "H:(_ \/ False)"; destruct H; try assumption
+    | H : In _ [] |- _ => inversion H
+    | _ => idtac
+    end.
+Abort.
+(*
+do 3 (driver; repeat (simplifier; finisher)).
+Goal (forall phi, Derivation [phi] Bot -> ~interp_ast phi).
+Abort.
+Goal (forall phi, Derivation [phi] Bot -> ~interp_ast phi).
+inversion 1; simpl; try tauto.
+subst; (destruct (app_eq_nil _ _ H1)); subst.
+inversion H2; inversion H4; subst; simpl in *; try tauto.
+Abort.
+
+*)
+
+Lemma neg_inj : forall q, ~(q = Neg q).
+Proof. intros q H; induction q; congruence. Qed.
+
+Lemma imp_inj_l : forall p q, ~(p = Imp p q).
+Proof. intros p q H; induction p; congruence. Qed.
+
+Lemma in_singleton : forall A (x y : A), In x [y] -> x = y.
+(intros A x y H); (inversion H); [ congruence | easy ]. Qed.
+
+Lemma not_in_both : forall p y, In p [y] -> In (Neg p) [y] -> False.
+   (intros p y H H0).
+   (apply in_singleton in H).
+   (apply in_singleton in H0).
+   (apply (neg_inj y)).
+   congruence.
+Qed.
+
+Lemma deriv_bot_bot' : forall x, (~exists p q, x = Or p q) -> Derivation [x] Bot -> ~(interp_ast x).
+intros x H' H.
+inversion H; subst; try easy; simpl;
+repeat match goal with 
+| [ H:(In ?a [?b]) |- _] => apply in_singleton in H
+| [ H:(?phi = ?x), H':(Neg ?phi = ?x) |- _] => exfalso; apply (neg_inj phi); congruence
+| [ H:(?phi = ?x), H':(Imp ?phi Bot = ?x) |- _] => exfalso; apply (imp_inj_l x Bot); congruence
+| _ => try (subst; simpl; tauto)
+end.
+(exfalso; apply H').
+exists phi,psi.
+reflexivity.
+Qed.
+
+Lemma deriv_bot_bot : forall x, Derivation [x] Bot -> ~(interp_ast x).
+intros x H.
+inversion H; subst; try easy; simpl;
+repeat match goal with 
+| [ H:(In ?a [?b]) |- _] => apply in_singleton in H
+| [ H:(?phi = ?x), H':(Neg ?phi = ?x) |- _] => exfalso; apply (neg_inj phi); congruence
+| [ H:(?phi = ?x), H':(Imp ?phi Bot = ?x) |- _] => exfalso; apply (imp_inj_l x Bot); congruence
+| [ H:(?a ++ ?b = []) |- _] => apply app_eq_nil in H
+| [ H:(?a /\ ?b) |- _] => destruct H as [? ?]
+| [ H:(?a = []) |- _] => subst
+(*
+| [ |- ~(interp_ast ?p \/ interp_ast ?q)] => destruct 1
+| [ H:(Derivation [?p] Bot), H':(interp_ast ?p) |- False] => idtac "foo"; inversion H; clear H
+*)
+| _ => try (subst; simpl in *; tauto)
+end.
+Restart.
+(intros x H H0).
+(induction x).
+- { exact H0. }
+- { inversion H; subst.
+    + { (simpl in H1).  (destruct H1; [ discriminate | assumption ]). }
+    + { (apply (not_in_both _ _ H1 H2)). }
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { simpl in H2; destruct H2; [discriminate | assumption]. }
+}
+- { inversion H; subst.
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { (apply (not_in_both _ _ H1 H2)). }
+    + { (inversion H1); (inversion H2); subst; inversion H0; assumption. }
+    + { (inversion H1); (inversion H2); subst; inversion H0; assumption. }
+    + { simpl in H2; destruct H2; [discriminate | assumption]. }
+}
+- { inversion H; subst.
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { simpl in H2; destruct H2; [discriminate | assumption]. }
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { simpl in H2; destruct H2; [discriminate | assumption]. }
+    + { apply app_eq_nil in H4; destruct H4 as [? ?]; subst.
+        specialize (IHx1 H6); specialize (IHx2 H5).
+        destruct H0; tauto.
+}}
+- { inversion H; subst.
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { simpl in H2; destruct H2; [discriminate | assumption]. }
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { simpl in H1; destruct H1; [discriminate | assumption]. }
+    + { inversion H2; inversion H3; subst. destruct H1; [ apply (imp_inj_l phi Bot); congruence | assumption ]. }
+}
+Qed.
+
+Theorem CIC_embeds_IPL : forall x, Derivation [] x -> interp_ast x.
+intros x H.
+inversion H; subst; try easy.
+- apply (deriv_bot_bot _ H0).
+- 
+Abort.
+
 End IPL.
 
 Module PHOASLam.
