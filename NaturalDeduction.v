@@ -102,25 +102,39 @@ Definition abs {T} {Inj} {Arr} {V} {A B} (x : V A -> Expr V (Inj B)) : @Expr T I
 Definition embed_id {T} {Inj} {Arr} {V} {A} : @Expr T Inj Arr V (Arr A A) := abs (fun x => var x).
 End Attempt2.
 
+Module TypeSystem1.
 Record TypeSystem := {
     T : Type -> Type; (* typing derivations, indexed over the type of constants *)
     Inj : forall A, T A; (* injecting a constant *)
-    Arr : forall (A B : Type), {C & T C}; (* the arrow constructor *)
+    Arr : Type -> Type -> {C & T C}; (* the arrow constructor *)
+    (*Inj_comm_Arr : forall A B, Inj (projT1 (Arr A B)) = projT2 (Arr A B);*)
     }.
+
+(* notes from shellphish party:
+suggested modification: Record TypeSystem := { T : Type; Arr : T -> T -> T; interp : T -> Type }
+Const for A should require T s.t. interp T = A
+TODO: look into kami? (doesn't have arbitrary typing derivations, but for familiarity with PHOAS
+"cross crypto" in MIT-PLV GH organisation
+cross crypto depends on FCF, extends it in some way? lemmas/tactics for use with FCF?
+*)
 
 Definition ShallowSimpleType := {|
     T := fun _ => Type;
     Inj := fun x => x;
     Arr := fun a b => existT _ (a -> b) (a -> b);
+    (*Inj_comm_Arr := ltac:(simpl in *; intros; reflexivity);*)
     |}.
 
 Definition Untyped := {|
     T := fun _ => unit;
     Inj := fun _ => tt;
     Arr := fun unit unit => existT _ unit tt;
+    (*Inj_comm_Arr := ltac:(simpl in *; intros; reflexivity);*)
     |}.
+End TypeSystem1.
 
 Module Attempt3.
+Include TypeSystem1.
 Inductive Expr (TS : TypeSystem) (V : Type -> Type) : {C & T TS C} -> Type :=
     | Const : forall A, A -> Expr TS V (existT _ _ (Inj TS A))
     | Var : forall A, V A -> Expr TS V (existT _ _ (Inj TS A))
@@ -160,6 +174,7 @@ Definition betaOpt {TS} {A} {U V : Type -> Type} (e : Expr TS (fun x => Expr TS 
 End Attempt3.
 
 Module Attempt4.
+Include TypeSystem1.
 
 Ltac with_sigT x := match goal with
     (*| e : _ = projT1 x |- _ => let H := fresh in set (H := projT2 x); rewrite <- e in H; exact H*)
@@ -198,8 +213,94 @@ Definition uabs {V : Type -> Type} (e1 : V unit -> UntypedExpr V) : UntypedExpr 
 Definition selfapply {V} : UntypedExpr V := uabs (fun x => uapp (var x) (var x)).
 Definition diverge {V} : UntypedExpr V := uapp selfapply selfapply.
 
+Definition betaOpt {TS} {B} {U V : Type -> Type} (e : forall U, Expr TS U B (Inj TS B)) : option (Expr TS V B (Inj TS B)).
+    (*refine (match e (fun _ => Expr _ _ (forall W, W) _) with*)
+    refine (match e U with
+    | App A (Abs a b H E1) E2 => Some _
+    | _ => None
+    end).
+    (*assert (A = a /\ B = b). {
+        clear E1 E2 e0 e.
+    *)
+    Abort.
+Definition betaOpt {V : Type -> Type} (e : forall U, UntypedExpr U) : option (UntypedExpr V).
+    refine (match e _ with
+    | App A (Abs a b H E1) E2 => Some _
+    | _ => None
+    end).
+    simpl in *. subst. simpl in *. apply E1.
+    Abort.
 End Attempt4.
 
-Include Attempt3.
+
+Module TypeSystem2.
+
+Record TypeSystem := {
+    T : Type;
+    Arr : Type -> Type -> Type;
+    interp : T -> Type;
+    }.
+
+Definition ShallowSimpleType := {|
+    T := Type;
+    Arr := fun a b => (a -> b);
+    interp := fun x => x
+    |}.
+Definition Untyped := {|
+    T := unit;
+    Arr := fun _ _ => unit;
+    interp := fun _ => unit;
+    |}.
+End TypeSystem2.
+
+Module Attempt5.
+Include TypeSystem2.
+Inductive Expr (TS : TypeSystem) (V : Type -> Type) : Type -> Type :=
+    | Const : forall A, A -> Expr TS V A
+    | Var : forall A, V A -> Expr TS V A
+    | App : forall A B, Expr TS V (Arr TS A B) -> Expr TS V A -> Expr TS V B
+    | Abs : forall A B, (V A -> Expr TS V B) -> Expr TS V (Arr TS A B).
+
+Definition embed_id {TS} {V} {A} : Expr TS V (Arr _ A A) := Abs _ _ _ _ (fun x => Var _ _ _ x).
+
+Definition uapp {V} (e1 e2 : Expr Untyped V unit) : Expr Untyped V unit := App _ V unit unit e1 e2.
+
+Definition selfapply {V} : Expr Untyped V unit := Abs _ _ _ _ (fun x => uapp (Var _ _ _ x) (Var _ _ _ x)).
+Definition diverge {V} : Expr Untyped V unit := uapp selfapply selfapply.
+
+Fixpoint eval {A} (e : Expr ShallowSimpleType (fun x => x) A) : A := match e with
+    | Const _ x => x
+    | Var _ x => x
+    | App _ _ e1 e2 => (eval e1) (eval e2)
+    | Abs _ _ f => fun x => eval (f x)
+    end.
+
+Inductive BetaStep {V} (f : Expr Untyped V unit -> V unit) : Expr Untyped V unit -> Expr Untyped V unit -> Prop :=
+    | EAppAbs : forall context e1 e2, BetaStep f (context (App _ _ _ _ (Abs _ _ unit unit e1) e2)) (context (e1 (f e2)))
+    | EVar : forall context e1, BetaStep f (context (Var _ _ _ (f e1))) (context e1).
+
+Inductive KleenePlus A (R : A -> A -> Prop) : A -> A -> Prop :=
+    | KPSing : forall x y, R x y -> KleenePlus A R x y
+    | KPCons : forall x y z, R x y -> KleenePlus A R y z -> KleenePlus A R x z.
+
+(* KP_eq is just a sanity check that KleenePlus is defined correctly *)
+Lemma KP_eq : forall A x y, KleenePlus A eq x y <-> x = y.
+Proof. intros A x y; split; intros H; [induction H | constructor]; congruence. Qed.
+
+Definition BetaPlus {V} f := KleenePlus _ (@BetaStep V f).
+
+Theorem diverge_diverges : forall V f, @BetaPlus V f diverge diverge.
+intros.
+eapply KPCons.
+    unfold diverge; eapply (EAppAbs f (fun x => x)).
+eapply KPCons.
+    eapply (EVar f _).
+eapply KPSing.
+    apply (EVar f (fun x => uapp x selfapply)).
+Qed.
+
+End Attempt5.
+
+Include Attempt5.
 
 End PHOASLam.
