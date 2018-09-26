@@ -106,24 +106,7 @@ reflexivity.
 Qed.
 
 Lemma deriv_bot_bot : forall x, Derivation [x] Bot -> ~(interp_ast x).
-intros x H.
-inversion H; subst; try easy; simpl;
-repeat match goal with 
-| [ H:(In ?a [?b]) |- _] => apply in_singleton in H
-| [ H:(?phi = ?x), H':(Neg ?phi = ?x) |- _] => exfalso; apply (neg_inj phi); congruence
-| [ H:(?phi = ?x), H':(Imp ?phi Bot = ?x) |- _] => exfalso; apply (imp_inj_l x Bot); congruence
-| [ H:(?a ++ ?b = []) |- _] => apply app_eq_nil in H
-| [ H:(?a /\ ?b) |- _] => destruct H as [? ?]
-| [ H:(?a = []) |- _] => subst
-(*
-| [ |- ~(interp_ast ?p \/ interp_ast ?q)] => destruct 1
-| [ H:(Derivation [?p] Bot), H':(interp_ast ?p) |- False] => idtac "foo"; inversion H; clear H
-*)
-| _ => try (subst; simpl in *; tauto)
-end.
-Restart.
-(intros x H H0).
-(induction x).
+intros x H H0. induction x.
 - { exact H0. }
 - { inversion H; subst.
     + { (simpl in H1).  (destruct H1; [ discriminate | assumption ]). }
@@ -156,6 +139,20 @@ Restart.
     + { simpl in H1; destruct H1; [discriminate | assumption]. }
     + { inversion H2; inversion H3; subst. destruct H1; [ apply (imp_inj_l phi Bot); congruence | assumption ]. }
 }
+Restart.
+intros x H H0; induction x; inversion H; subst; try easy; simpl;
+repeat match goal with 
+| [ H:(?f ?a = ?f ?b) |- _] => let H' := fresh in assert (H' : b = c) by (inversion H; reflexivity)
+| [ H:(In ?a [?b]) |- _] => apply in_singleton in H
+| [ H:(?phi = ?x), H':(Neg ?phi = ?x) |- _] => exfalso; apply (neg_inj phi); congruence
+| [ H:(?phi = ?x), H':(Imp ?phi Bot = ?x) |- _] => exfalso; apply (imp_inj_l x Bot); congruence
+| [ H:(?a ++ ?b = []) |- _] => apply app_eq_nil in H
+| [ H:(?a /\ ?b) |- _] => destruct H as [? ?]
+| [ H:(?a = []) |- _] => subst
+| [ H : (And _ _ = And _ _) |- _ ] => inversion H; subst; clear H
+| [ _ : ?a = ?b |- _] => try discriminate
+| _ => try (subst; simpl in *; tauto)
+end.
 Qed.
 
 Theorem CIC_embeds_IPL : forall x, Derivation [] x -> interp_ast x.
