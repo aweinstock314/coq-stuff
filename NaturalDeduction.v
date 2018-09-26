@@ -275,8 +275,8 @@ Fixpoint eval {A} (e : Expr ShallowSimpleType (fun x => x) A) : A := match e wit
     | Abs _ _ f => fun x => eval (f x)
     end.
 
-Inductive BetaStep {V} (f : Expr Untyped V unit -> V unit) : Expr Untyped V unit -> Expr Untyped V unit -> Prop :=
-    | EAppAbs : forall context e1 e2, BetaStep f (context (App _ _ _ _ (Abs _ _ unit unit e1) e2)) (context (e1 (f e2)))
+Inductive BetaStep {TS} {V} {A} (f : Expr TS V A -> V A) : Expr TS V A -> Expr TS V A -> Prop :=
+    | EAppAbs : forall context e1 e2, BetaStep f (context (App _ _ _ _ (Abs _ _ A A e1) e2)) (context (e1 (f e2)))
     | EVar : forall context e1, BetaStep f (context (Var _ _ _ (f e1))) (context e1).
 
 Inductive KleenePlus A (R : A -> A -> Prop) : A -> A -> Prop :=
@@ -287,9 +287,9 @@ Inductive KleenePlus A (R : A -> A -> Prop) : A -> A -> Prop :=
 Lemma KP_eq : forall A x y, KleenePlus A eq x y <-> x = y.
 Proof. intros A x y; split; intros H; [induction H | constructor]; congruence. Qed.
 
-Definition BetaPlus {V} f := KleenePlus _ (@BetaStep V f).
+Definition BetaPlus {TS} {V} {A} f := KleenePlus _ (@BetaStep TS V A f).
 
-Theorem diverge_diverges : forall V f, @BetaPlus V f diverge diverge.
+Theorem diverge_diverges : forall V f, @BetaPlus Untyped V unit f diverge diverge.
 intros.
 eapply KPCons.
     unfold diverge; eapply (EAppAbs f (fun x => x)).
