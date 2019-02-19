@@ -62,6 +62,28 @@ Fixpoint primrec_denote k (f : PrimRec k) : arity_to_type k := match f with
         end
     end.
 
-Definition PR_plus : PrimRec 2 := Rec 1 (Proj 1 0 ltac:(omega)) (Comp 1 3 Succ (cons _ (Proj 3 1 ltac:(omega)) _ (nil _))).
+Definition comp1 {n} : PrimRec 1 -> PrimRec n -> PrimRec n := fun x y => Comp 1 n x (cons _ y _ (nil _)).
+
+Definition PR_plus : PrimRec 2 := Rec 1 (Proj 1 0 ltac:(omega)) (comp1 Succ (Proj 3 1 ltac:(omega))).
 
 Example PR_plus_demo_0 : primrec_denote _ PR_plus 22 7 = 29. reflexivity. Qed.
+
+Lemma PR_plus_builtin_plus_compat : forall x y, primrec_denote _ PR_plus x y = x + y.
+induction x; intros y.
+- reflexivity.
+- simpl in *; rewrite (IHx y);  reflexivity.
+Qed.
+
+Definition PR_pred : PrimRec 1 := Rec _ Zero (Proj 2 0 ltac:(omega)).
+
+Lemma PR_pred_builtin_pred_compat : forall x, primrec_denote _ PR_pred x = pred x.
+destruct x; reflexivity.
+Qed.
+
+Definition PR_sub : PrimRec 2 := Rec _ (Proj 1 0 ltac:(omega)) (comp1 PR_pred (Proj 3 1 ltac:(omega))).
+
+Lemma PR_sub_builtin_sub_compat : forall x y, primrec_denote _ PR_sub y x = x - y.
+induction y; simpl in *.
+- apply minus_n_O.
+- rewrite IHy, PR_pred_builtin_pred_compat, Nat.sub_succ_r; reflexivity.
+Qed.
