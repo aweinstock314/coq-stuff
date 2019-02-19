@@ -80,9 +80,13 @@ Lemma PR_pred_builtin_pred_compat : forall x, primrec_denote _ PR_pred x = pred 
 destruct x; reflexivity.
 Qed.
 
-Definition PR_sub : PrimRec 2 := Rec _ (Proj 1 0 ltac:(omega)) (comp1 PR_pred (Proj 3 1 ltac:(omega))).
+Definition PR_swap : PrimRec 2 -> PrimRec 2 := fun x => Comp _ _ x (cons _ (Proj 2 1 ltac:(omega)) _ (cons _ (Proj 2 0 ltac:(omega)) _ (nil _))).
 
-Lemma PR_sub_builtin_sub_compat : forall x y, primrec_denote _ PR_sub y x = x - y.
+Lemma PR_swap_correct : forall f x y, primrec_denote _ (PR_swap f) x y = primrec_denote _ f y x. reflexivity. Qed.
+
+Definition PR_sub : PrimRec 2 := PR_swap (Rec _ (Proj 1 0 ltac:(omega)) (comp1 PR_pred (Proj 3 1 ltac:(omega)))).
+
+Lemma PR_sub_builtin_sub_compat : forall x y, primrec_denote _ PR_sub x y = x - y.
 induction y; simpl in *.
 - apply minus_n_O.
 - rewrite IHy, PR_pred_builtin_pred_compat, Nat.sub_succ_r; reflexivity.
