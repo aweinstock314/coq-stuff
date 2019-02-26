@@ -56,13 +56,13 @@ Instance ASTSubtype sub sup `(_ : sub :<: sup) : sub :<: AST sup := {
     prj := fun _ x => match x with Sym y => prj y | _ => None end;
     }.
 
-Class Denotation (sig : Type) := { un_denotation : Type }.
-Instance FullDenotation a : Denotation (Full a) := { un_denotation := a }.
-Instance PartialDenotation a b `(_ : Denotation b) : Denotation (Partial a b) := { un_denotation := a -> un_denotation }.
+Class Denotation (sig : Type) := { run_denotation : Type }.
+Instance FullDenotation a : Denotation (Full a) := { run_denotation := a }.
+Instance PartialDenotation a b `(_ : Denotation b) : Denotation (Partial a b) := { run_denotation := a -> run_denotation }.
 
-Definition denotation (a : Type) `{_ : Denotation a} := un_denotation.
+Class Denotable (expr : Type -> Type) := { get_denotation : forall {a}, expr a -> Denotation a }.
 
-Class BigStepEval (expr : Type -> Type) := { big_step_eval : forall a `(_ : Denotation a), expr a -> denotation a }.
+Class BigStepEval (expr : Type -> Type) `{_ : Denotable expr} := { big_step_eval : forall a (x : expr a), @run_denotation _ (get_denotation x) }.
 
 Inductive BooleanSym : Type -> Type :=
     | BoolLit : bool -> BooleanSym (Full bool)
@@ -70,10 +70,16 @@ Inductive BooleanSym : Type -> Type :=
     | BoolBinop : (bool -> bool -> bool) -> BooleanSym (bool :-> bool :-> Full bool)
     .
 
-Set Printing Implicit.
+Instance Denotable_BooleanSym : Denotable BooleanSym := {
+    get_denotation := fun a x => match x with
+        | BoolLit _ => (FullDenotation _)
+        | BoolUnop _ => (PartialDenotation _ _ _)
+        | BoolBinop _ => (PartialDenotation _ _ _)
+        end
+    }.
 
-Fail Instance BSE_BooleanSym : BigStepEval BooleanSym := {
-    big_step_eval a _ (x : BooleanSym a) := match x with
+Instance BSE_BooleanSym : BigStepEval BooleanSym := {
+    big_step_eval a (x : BooleanSym a) := match x with
         | BoolLit b => b
         | BoolUnop f => f
         | BoolBinop f => f
