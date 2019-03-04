@@ -1,13 +1,20 @@
 (* https://emilaxelsson.github.io/documents/axelsson2012generic.pdf *)
 
-Inductive Full a := MkFull : a -> Full a.
-Inductive Partial a b := MkPartial : (a -> b) -> Partial a b.
+Inductive Spine : Type :=
+    | Full : Type -> Spine
+    | Partial : Type -> Spine -> Spine
+    .
+
+Fixpoint spineDenotation (x : Spine) : Type := match x with
+    | Full a => a
+    | Partial a b => a -> spineDenotation b
+    end.
 
 Infix ":->" := Partial (at level 90, right associativity).
 
-Inductive AST dom sig :=
+Inductive AST dom (sig : Spine) :=
     | Sym : dom sig -> AST dom sig
-    | App : forall a, AST dom (a  :-> sig) -> AST dom (Full a) -> AST dom sig
+    | App : forall a, AST dom (a :-> sig) -> AST dom (Full a) -> AST dom sig
     .
 
 Arguments Sym {_ _} _.
@@ -16,7 +23,7 @@ Arguments App {_ _ _} _ _.
 Infix ":$" := App (at level 10).
 Definition ASTF dom a := AST dom (Full a).
 
-Inductive TyPlus (dom1 dom2 : Type -> Type) a :=
+Inductive TyPlus (dom1 dom2 : Spine -> Type) a :=
     | InjL : dom1 a -> TyPlus dom1 dom2 a
     | InjR : dom2 a -> TyPlus dom1 dom2 a
     .
@@ -26,7 +33,7 @@ Arguments InjR {_ _ _} _.
 
 Infix ":+:" := TyPlus (at level 90).
 
-Class Subtype (sub sup : Type -> Type) := {
+Class Subtype (sub sup : Spine -> Type) := {
     inj : forall a, sub a -> sup a;
     prj : forall a, sup a -> option (sub a);
     }.
@@ -56,27 +63,24 @@ Instance ASTSubtype sub sup `(_ : sub :<: sup) : sub :<: AST sup := {
     prj := fun _ x => match x with Sym y => prj y | _ => None end;
     }.
 
-Class Denotation (sig : Type) := { run_denotation : Type }.
-Instance FullDenotation a : Denotation (Full a) := { run_denotation := a }.
-Instance PartialDenotation a b `(_ : Denotation b) : Denotation (Partial a b) := { run_denotation := a -> run_denotation }.
+Class BigStepEval (expr : Spine -> Type) := { big_step_eval : forall {a} (x : expr a), spineDenotation a }.
 
-Class Denotable (expr : Type -> Type) := { get_denotation : forall {a}, expr a -> Denotation a }.
+Instance BSE_TyPlus {sub1 sub2} `{_ : BigStepEval sub1} `{_ : BigStepEval sub2} : BigStepEval (sub1 :+: sub2) := {
+        big_step_eval _ x := match x with InjL y => big_step_eval y | InjR y => big_step_eval y end
+    }.
 
-Class BigStepEval (expr : Type -> Type) `{_ : Denotable expr} := { big_step_eval : forall a (x : expr a), @run_denotation _ (get_denotation x) }.
+Instance BSE_AST {dom} `{_ : BigStepEval dom} : BigStepEval (AST dom) := {
+    big_step_eval a x := (fix f a (x : AST dom a) := match x with
+        | Sym y => big_step_eval y
+        | App y z => (f _ y) (f _ z)
+        end) a x
+    }.
 
-Inductive BooleanSym : Type -> Type :=
+Inductive BooleanSym : Spine -> Type :=
     | BoolLit : bool -> BooleanSym (Full bool)
     | BoolUnop : (bool -> bool) -> BooleanSym (bool :-> Full bool)
     | BoolBinop : (bool -> bool -> bool) -> BooleanSym (bool :-> bool :-> Full bool)
     .
-
-Instance Denotable_BooleanSym : Denotable BooleanSym := {
-    get_denotation := fun a x => match x with
-        | BoolLit _ => (FullDenotation _)
-        | BoolUnop _ => (PartialDenotation _ _ _)
-        | BoolBinop _ => (PartialDenotation _ _ _)
-        end
-    }.
 
 Instance BSE_BooleanSym : BigStepEval BooleanSym := {
     big_step_eval a (x : BooleanSym a) := match x with
@@ -86,7 +90,8 @@ Instance BSE_BooleanSym : BigStepEval BooleanSym := {
         end
     }.
 
-Inductive IfExpr : Type -> Type := IfThenElse : forall a, IfExpr (bool :-> a :-> a :-> Full a).
+Inductive IfExpr : Spine -> Type := IfThenElse : forall a, IfExpr (bool :-> a :-> a :-> Full a).
+Instance BSE_IfExpr : BigStepEval IfExpr := { big_step_eval a x := match x with | IfThenElse _ => fun c t f => if c then t else f end }.
 
 Definition not' {dom} `(_ : BooleanSym :<: dom) : ASTF dom bool -> ASTF dom bool := fun x => inj (BoolUnop negb) :$ x.
 
