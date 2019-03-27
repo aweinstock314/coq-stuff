@@ -170,7 +170,34 @@ Inductive ContextedLam : hlist -> Spine -> Type :=
 
 Instance BSE_ContextedLam (ctx : hlist) : BigStepEval (ContextedLam ctx) := ltac:(constructor; induction 1; assumption).
 
+Inductive ContextedLam' dom : hlist -> Spine -> Type :=
+    | CtxVar' : forall {A} (x : A) {xs}, hElem x xs -> ContextedLam' dom xs (Full A)
+    | CtxAbs' : forall {A B xs}, (forall x, AST (dom :+: ContextedLam' dom (hcons A x xs)) (Full B)) -> ContextedLam' dom xs (Full (A -> B))
+    .
+
+Arguments CtxVar' {_ _} _ {_}.
+Arguments CtxAbs' {_ _ _ _} _.
+
+Fail Instance BSE_ContextedLam' {dom} `{_ : BigStepEval dom} (ctx : hlist) : BigStepEval (ContextedLam' dom ctx) := {
+    big_step_eval spine :=
+    (fix rec ctx' spine' (lam : ContextedLam' dom ctx' spine') {struct lam} : spineDenotation spine' :=
+        match lam with
+        | CtxVar' y _ => y
+        | @CtxAbs' _ A B xs f => fun y => rec' _ _ (f y)
+        end
+    with rec' ctx' spine' (ast : AST (dom :+: ContextedLam' dom ctx') spine') {struct ast} : spineDenotation spine' :=
+        match ast with
+        | Sym (InjL z) => big_step_eval z
+        | Sym (InjR z) => rec _ _ z (* Fails with `Recursive call to rec has principal argument equal to "z" instead of a subterm of "ast".` *)
+        | App a b => (rec' _ _ a (rec' _ _ b))
+        end
+    for rec) ctx spine
+    }.
+(*Check @big_step_eval _ BSE_AST _ b.*)
+(*Check Build_BigStepEval (AST (dom :+: ContextedLam' dom (hcons A y xs))) (fun s x => rec (hcons A y xs) _ _).*)
+
 Definition embed_snd {dom} `{_ : ContextedLam hnil :<: dom} a b : AST dom (Full (a -> b -> b)) := inj (CtxAbs (fun _ => CtxAbs (fun y => CtxVar y searchHlist))).
+Definition embed_snd' {dom} a b : AST (dom :+: ContextedLam' dom hnil) (Full (a -> b -> b)) := inj (CtxAbs' (fun _ => inj (CtxAbs' (fun y => inj (CtxVar' y searchHlist))))).
 
 Compute big_step_eval (embed_snd nat nat).
 
