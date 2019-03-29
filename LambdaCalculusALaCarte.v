@@ -178,26 +178,6 @@ Inductive ContextedLam' dom : hlist -> Spine -> Type :=
 Arguments CtxVar' {_ _} _ {_}.
 Arguments CtxAbs' {_ _ _ _} _.
 
-Fail Instance BSE_ContextedLam' {dom} `{_ : BigStepEval dom} (ctx : hlist) : BigStepEval (ContextedLam' dom ctx) := {
-    big_step_eval spine :=
-    (fix rec ctx' spine' (lam : ContextedLam' dom ctx' spine') {struct lam} : spineDenotation spine' :=
-        match lam with
-        | CtxVar' y _ => y
-        | @CtxAbs' _ A B xs f => fun y => rec' _ _ (f y)
-        end
-    with rec' ctx' spine' (ast : AST (dom :+: ContextedLam' dom ctx') spine') : spineDenotation spine' :=
-        match ast with
-        | Sym plus => _
-        | App a b => (rec' _ _ a (rec' _ _ b))
-        end
-    with rec'' ctx' spine' (plus : (dom :+: ContextedLam' dom ctx') spine') {struct plus} : spineDenotation spine' :=
-        match plus with
-        | InjL z => big_step_eval z
-        | InjR z => _
-        end
-    for rec) ctx spine
-    }.
-
 Inductive ContextedLam'' dom : nat -> hlist -> Spine -> Type :=
     | CtxVar'' : forall {n} {A} (x : A) {xs}, hElem x xs -> ContextedLam'' dom n xs (Full A)
     | CtxAbs'' : forall {n A B xs}, (forall x, AST (dom :+: ContextedLam'' dom n (hcons A x xs)) (Full B)) -> ContextedLam'' dom (S n) xs (Full (A -> B))
@@ -205,35 +185,6 @@ Inductive ContextedLam'' dom : nat -> hlist -> Spine -> Type :=
 
 Arguments CtxVar'' {_ _ _} _ {_}.
 Arguments CtxAbs'' {_ _ _ _ _} _.
-
-(*Check @big_step_eval _ BSE_AST _ b.*)
-(*Check Build_BigStepEval (AST (dom :+: ContextedLam' dom (hcons A y xs))) (fun s x => rec (hcons A y xs) _ _).*)
-
-Definition embed_snd {dom} `{_ : ContextedLam hnil :<: dom} a b : AST dom (Full (a -> b -> b)) := inj (CtxAbs (fun _ => CtxAbs (fun y => CtxVar y searchHlist))).
-Definition embed_snd' {dom} a b : AST (dom :+: ContextedLam' dom hnil) (Full (a -> b -> b)) := inj (CtxAbs' (fun _ => inj (CtxAbs' (fun y => inj (CtxVar' y searchHlist))))).
-Definition embed_snd'' {dom} a b : AST (dom :+: ContextedLam'' dom 2 hnil) (Full (a -> b -> b)) := inj (CtxAbs'' (fun _ => inj (CtxAbs'' (fun y => inj (CtxVar'' y searchHlist))))).
-
-Compute big_step_eval (embed_snd nat nat).
-
-Inductive PR' : Spine -> Type := Rec' : forall s, PR' (spineDenotation s :-> (nat -> spineLast s -> spineDenotation s) :-> Full (nat -> spineDenotation s)).
-Instance BSE_PR' : BigStepEval PR' := {
-    big_step_eval a x := _
-    }.
-(destruct x).
-(induction s; simpl; intros).
-- (induction H).
-    + exact X.
-    + exact (X0 H IHnat).
-- refine (IHs (X X1) _ H).
-    intros.
-    exact (X0 H0 X2 X1).
-Defined.
-
-Definition PR_plus : AST (PR' :+: NatSym :+: ContextedLam hnil) (Full (nat -> nat -> nat)).
-refine ((inj (Rec' (nat :-> Full nat)) : AST _ ((nat -> nat) :-> (nat -> nat -> nat -> nat) :-> Full (nat -> nat -> nat))) :$ _ :$ _).
-- exact (inj (CtxAbs (fun x => CtxVar x searchHlist))).
-- exact (inj (CtxAbs (fun x => CtxAbs (fun y => (CtxAbs (fun z => CtxVar x searchHlist)))))). (* this isn't yet correct, the shape of ContextedLam doesn't allow splicing in other domain elements, so we can't use Succ *)
-Defined.
 
 Definition lam_ast_rect_mut
     (Pdom : forall dom spine, dom spine -> Type)
@@ -269,3 +220,30 @@ Instance BSE_ContextedLam' {dom} `{_ : BigStepEval dom} (ctx : hlist) : BigStepE
         (fun _ _ _ x => x) (fun _ _ _ _ x => x) (fun _ _ _ _ x => x) (fun _ _ _ _ _ f x => f x) (fun _ _ x _ _ => x)
         (fun _ _ _ _ _ f => f) _ _ _ lam (fun _ x => big_step_eval x)
     }.
+
+Definition embed_snd {dom} `{_ : ContextedLam hnil :<: dom} a b : AST dom (Full (a -> b -> b)) := inj (CtxAbs (fun _ => CtxAbs (fun y => CtxVar y searchHlist))).
+Definition embed_snd' {dom} a b : AST (dom :+: ContextedLam' dom hnil) (Full (a -> b -> b)) := inj (CtxAbs' (fun _ => inj (CtxAbs' (fun y => inj (CtxVar' y searchHlist))))).
+Definition embed_snd'' {dom} a b : AST (dom :+: ContextedLam'' dom 2 hnil) (Full (a -> b -> b)) := inj (CtxAbs'' (fun _ => inj (CtxAbs'' (fun y => inj (CtxVar'' y searchHlist))))).
+
+Compute big_step_eval (embed_snd nat nat).
+Compute big_step_eval (embed_snd' nat nat).
+
+Inductive PR' : Spine -> Type := Rec' : forall s, PR' (spineDenotation s :-> (nat -> spineLast s -> spineDenotation s) :-> Full (nat -> spineDenotation s)).
+Instance BSE_PR' : BigStepEval PR' := {
+    big_step_eval a x := _
+    }.
+(destruct x).
+(induction s; simpl; intros).
+- (induction H).
+    + exact X.
+    + exact (X0 H IHnat).
+- refine (IHs (X X1) _ H).
+    intros.
+    exact (X0 H0 X2 X1).
+Defined.
+
+Definition PR_plus : AST (PR' :+: NatSym :+: ContextedLam' NatSym hnil) (Full (nat -> nat -> nat)).
+refine ((inj (Rec' (nat :-> Full nat)) : AST _ ((nat -> nat) :-> (nat -> nat -> nat -> nat) :-> Full (nat -> nat -> nat))) :$ _ :$ _).
+- exact (inj (CtxAbs' (fun x => inj (CtxVar' x searchHlist)))).
+- exact (inj (CtxAbs' (fun x => inj (CtxAbs' (fun y => inj (CtxAbs' (fun z => Sym (inj Succ) :$ (Sym (InjR (CtxVar' x searchHlist)))))))))).
+Defined.
