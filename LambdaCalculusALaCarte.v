@@ -185,19 +185,33 @@ Fail Instance BSE_ContextedLam' {dom} `{_ : BigStepEval dom} (ctx : hlist) : Big
         | CtxVar' y _ => y
         | @CtxAbs' _ A B xs f => fun y => rec' _ _ (f y)
         end
-    with rec' ctx' spine' (ast : AST (dom :+: ContextedLam' dom ctx') spine') {struct ast} : spineDenotation spine' :=
+    with rec' ctx' spine' (ast : AST (dom :+: ContextedLam' dom ctx') spine') : spineDenotation spine' :=
         match ast with
-        | Sym (InjL z) => big_step_eval z
-        | Sym (InjR z) => rec _ _ z (* Fails with `Recursive call to rec has principal argument equal to "z" instead of a subterm of "ast".` *)
+        | Sym plus => _
         | App a b => (rec' _ _ a (rec' _ _ b))
+        end
+    with rec'' ctx' spine' (plus : (dom :+: ContextedLam' dom ctx') spine') {struct plus} : spineDenotation spine' :=
+        match plus with
+        | InjL z => big_step_eval z
+        | InjR z => _
         end
     for rec) ctx spine
     }.
+
+Inductive ContextedLam'' dom : nat -> hlist -> Spine -> Type :=
+    | CtxVar'' : forall {n} {A} (x : A) {xs}, hElem x xs -> ContextedLam'' dom n xs (Full A)
+    | CtxAbs'' : forall {n A B xs}, (forall x, AST (dom :+: ContextedLam'' dom n (hcons A x xs)) (Full B)) -> ContextedLam'' dom (S n) xs (Full (A -> B))
+    .
+
+Arguments CtxVar'' {_ _ _} _ {_}.
+Arguments CtxAbs'' {_ _ _ _ _} _.
+
 (*Check @big_step_eval _ BSE_AST _ b.*)
 (*Check Build_BigStepEval (AST (dom :+: ContextedLam' dom (hcons A y xs))) (fun s x => rec (hcons A y xs) _ _).*)
 
 Definition embed_snd {dom} `{_ : ContextedLam hnil :<: dom} a b : AST dom (Full (a -> b -> b)) := inj (CtxAbs (fun _ => CtxAbs (fun y => CtxVar y searchHlist))).
 Definition embed_snd' {dom} a b : AST (dom :+: ContextedLam' dom hnil) (Full (a -> b -> b)) := inj (CtxAbs' (fun _ => inj (CtxAbs' (fun y => inj (CtxVar' y searchHlist))))).
+Definition embed_snd'' {dom} a b : AST (dom :+: ContextedLam'' dom 2 hnil) (Full (a -> b -> b)) := inj (CtxAbs'' (fun _ => inj (CtxAbs'' (fun y => inj (CtxVar'' y searchHlist))))).
 
 Compute big_step_eval (embed_snd nat nat).
 
@@ -220,3 +234,38 @@ refine ((inj (Rec' (nat :-> Full nat)) : AST _ ((nat -> nat) :-> (nat -> nat -> 
 - exact (inj (CtxAbs (fun x => CtxVar x searchHlist))).
 - exact (inj (CtxAbs (fun x => CtxAbs (fun y => (CtxAbs (fun z => CtxVar x searchHlist)))))). (* this isn't yet correct, the shape of ContextedLam doesn't allow splicing in other domain elements, so we can't use Succ *)
 Defined.
+
+Definition lam_ast_rect_mut
+    (Pdom : forall dom spine, dom spine -> Type)
+    (Past : forall dom spine, AST dom spine -> Type)
+    (HSym : forall dom spine (x : dom spine), Pdom _ _ x -> Past _ _ (Sym x))
+    (Hinl : forall domL domR spine (x : domL spine), Pdom domL spine x -> Pdom (domL :+: domR) spine (InjL x))
+    (Hinr : forall domL domR spine (x : domR spine), Pdom domR spine x -> Pdom (domL :+: domR) spine (InjR x))
+    (HApp : forall dom a spine (x : AST dom (a :-> spine)) (y : AST dom (Full a)), Past _ _ x -> Past _ _ y  -> Past _ _ (App x y))
+    (HVar : forall dom A (x : A) xs (wit : hElem x xs), Pdom (ContextedLam' dom _) (Full A) (CtxVar' x wit))
+    (HLam : forall dom A B ctx (f : forall x, AST (dom :+: ContextedLam' dom (hcons A x ctx)) (Full B)), (forall x, Past _ _ (f x)) -> Pdom (ContextedLam' dom ctx) (Full (A -> B)) (CtxAbs' f))
+    dom ctx spine (lam : ContextedLam' dom ctx spine)
+    (Hdom : forall spine (x : dom spine), Pdom dom spine x)
+    : Pdom (ContextedLam' dom ctx) spine lam
+:= ((fix recLam dom' (Hdom' : forall spine'' (x : dom' spine''), Pdom _ _ x) ctx' spine' lam { struct lam } : Pdom (ContextedLam' dom' ctx') spine' lam :=
+    match lam with
+    | @CtxVar' _ A x xs y => HVar dom' A x xs y
+    | @CtxAbs' _ A B xs f => HLam dom' A B xs f (fun x =>
+        (fix recAst dom' (Hdom' : forall spine'' (x : dom' spine''), Pdom _ _ x) ctx' spine' ast { struct ast } : Past (dom' :+: ContextedLam' dom' ctx') spine' ast :=
+            match ast as ast' return Past _ _ ast' with
+            | Sym x => HSym _ _ _ (match x as x' return Pdom _ _ x' with
+                | InjL y => Hinl _ _ _ _ (Hdom' _ _)
+                | InjR y => Hinr _ _ _ _ (recLam _ (fun _ _ => Hdom' _ _) _ _ y)
+                end)
+            | App x y => HApp _ _ _ x y (recAst _ (fun _ _ => Hdom' _ _) _ _ x) (recAst _ (fun _ _ => Hdom' _ _) _ _ y)
+            end) _ (fun _ _ => Hdom' _ _) _ _ (f x)
+        )
+    end
+    ) dom Hdom ctx spine lam).
+
+Instance BSE_ContextedLam' {dom} `{_ : BigStepEval dom} (ctx : hlist) : BigStepEval (ContextedLam' dom ctx) := {
+    big_step_eval spine lam := lam_ast_rect_mut
+        (fun _ s _ => spineDenotation s) (fun _ s _ => spineDenotation s)
+        (fun _ _ _ x => x) (fun _ _ _ _ x => x) (fun _ _ _ _ x => x) (fun _ _ _ _ _ f x => f x) (fun _ _ x _ _ => x)
+        (fun _ _ _ _ _ f => f) _ _ _ lam (fun _ x => big_step_eval x)
+    }.
