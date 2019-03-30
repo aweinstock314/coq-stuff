@@ -230,20 +230,16 @@ Compute big_step_eval (embed_snd' nat nat).
 
 Inductive PR' : Spine -> Type := Rec' : forall s, PR' (spineDenotation s :-> (nat -> spineLast s -> spineDenotation s) :-> Full (nat -> spineDenotation s)).
 Instance BSE_PR' : BigStepEval PR' := {
-    big_step_eval a x := _
+    big_step_eval a x := match x with
+        Rec' s => fun f g => fix h (n : nat) := match n with
+            | O => f
+            | S n' => varCurry _ (fun xs => varUncurry _ (g n' (varUncurry _ (h n') xs)) xs)
+            end
+        end
     }.
-(destruct x).
-(induction s; simpl; intros).
-- (induction H).
-    + exact X.
-    + exact (X0 H IHnat).
-- refine (IHs (X X1) _ H).
-    intros.
-    exact (X0 H0 X2 X1).
-Defined.
 
 Definition PR_plus : AST (PR' :+: NatSym :+: ContextedLam' NatSym hnil) (Full (nat -> nat -> nat)).
 refine ((inj (Rec' (nat :-> Full nat)) : AST _ ((nat -> nat) :-> (nat -> nat -> nat -> nat) :-> Full (nat -> nat -> nat))) :$ _ :$ _).
 - exact (inj (CtxAbs' (fun x => inj (CtxVar' x searchHlist)))).
-- exact (inj (CtxAbs' (fun x => inj (CtxAbs' (fun y => inj (CtxAbs' (fun z => Sym (inj Succ) :$ (Sym (InjR (CtxVar' x searchHlist)))))))))).
+- exact (inj (CtxAbs' (fun x => inj (CtxAbs' (fun y => inj (CtxAbs' (fun z => Sym (inj Succ) :$ (Sym (InjR (CtxVar' y searchHlist)))))))))).
 Defined.
