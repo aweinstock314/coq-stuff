@@ -221,8 +221,11 @@ Instance BSE_ContextedLam' {dom} `{_ : BigStepEval dom} (ctx : hlist) : BigStepE
         (fun _ _ _ _ _ f => f) _ _ _ lam (fun _ x => big_step_eval x)
     }.
 
+Definition var {dom dom' A xs} (x : A) `{_ : Search_hElem A x xs} `{_ : Subtype (ContextedLam' dom xs) dom'} : ASTF dom' A := inj (CtxVar' x searchHlist).
+Definition abs {dom dom' A B xs} `{_ : Subtype (ContextedLam' dom xs) dom'} (f : forall x, ASTF (dom :+: ContextedLam' dom (hcons A x xs)) B) : ASTF dom' (A -> B) := inj (CtxAbs' f).
+
 Definition embed_snd {dom} `{_ : ContextedLam hnil :<: dom} a b : AST dom (Full (a -> b -> b)) := inj (CtxAbs (fun _ => CtxAbs (fun y => CtxVar y searchHlist))).
-Definition embed_snd' {dom} a b : AST (dom :+: ContextedLam' dom hnil) (Full (a -> b -> b)) := inj (CtxAbs' (fun _ => inj (CtxAbs' (fun y => inj (CtxVar' y searchHlist))))).
+Definition embed_snd' {dom} a b : AST (dom :+: ContextedLam' dom hnil) (Full (a -> b -> b)) := abs (fun _ => abs (fun y => var y)).
 Definition embed_snd'' {dom} a b : AST (dom :+: ContextedLam'' dom 2 hnil) (Full (a -> b -> b)) := inj (CtxAbs'' (fun _ => inj (CtxAbs'' (fun y => inj (CtxVar'' y searchHlist))))).
 
 Compute big_step_eval (embed_snd nat nat).
@@ -240,6 +243,6 @@ Instance BSE_PR' : BigStepEval PR' := {
 
 Definition PR_plus : AST (PR' :+: NatSym :+: ContextedLam' NatSym hnil) (Full (nat -> nat -> nat)).
 refine ((inj (Rec' (nat :-> Full nat)) : AST _ ((nat -> nat) :-> (nat -> nat -> nat -> nat) :-> Full (nat -> nat -> nat))) :$ _ :$ _).
-- exact (inj (CtxAbs' (fun x => inj (CtxVar' x searchHlist)))).
-- exact (inj (CtxAbs' (fun x => inj (CtxAbs' (fun y => inj (CtxAbs' (fun z => Sym (inj Succ) :$ (Sym (InjR (CtxVar' y searchHlist)))))))))).
+- exact (abs (fun x => var x)).
+- exact (abs (fun x => abs (fun y => abs (fun z => Sym (inj Succ) :$ (var y))))).
 Defined.
