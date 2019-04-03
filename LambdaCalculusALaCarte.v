@@ -246,3 +246,11 @@ refine ((inj (Rec' (nat :-> Full nat)) : AST _ ((nat -> nat) :-> (nat -> nat -> 
 - exact (abs (fun x => var x)).
 - exact (abs (fun x => abs (fun y => abs (fun z => Sym (inj Succ) :$ (var y))))).
 Defined.
+
+Lemma PR_plus_compat_plus : forall x y, big_step_eval PR_plus x y = x + y.
+intros x y; induction x.
+- reflexivity.
+- simpl in *; rewrite IHx; reflexivity.
+Qed.
+
+Example ContextedLam'_exotic_term : big_step_eval (abs (fun x => abs (fun y => abs (fun z => match x with true => var y | false => var z end))) : ASTF (ContextedLam' NatSym hnil) (bool -> nat -> nat -> nat)) true 5 42 = 5. reflexivity. Qed.
